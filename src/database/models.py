@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Real, Text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, Text
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
@@ -28,7 +28,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     product = Column(Text, nullable=False)
-    amount = Column(Real, nullable=False)
+    amount = Column(Float, nullable=False)
     status = Column(Text, nullable=False, default="pending")  # pending/shipped/delivered/refunded
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -50,3 +50,28 @@ class Ticket(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="tickets")
+
+
+class CannedResponse(Base):
+    __tablename__ = "canned_responses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    shortcut = Column(Text, unique=True, nullable=False)  # e.g., "/greet"
+    title = Column(Text, nullable=False)
+    content = Column(Text, nullable=False)
+    category = Column(Text)  # "greeting", "refund", "shipping"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ConversationMeta(Base):
+    __tablename__ = "conversation_meta"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Text, unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    sentiment_score = Column(Float)  # -1.0 to 1.0
+    sentiment_label = Column(Text)   # negative/neutral/positive
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")

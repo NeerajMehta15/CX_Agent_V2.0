@@ -1,5 +1,6 @@
 import json
 from collections import defaultdict
+from datetime import datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
@@ -18,6 +19,12 @@ agent_connections: dict[str, WebSocket] = {}
 # Track which sessions are in handoff mode
 handoff_sessions: set[str] = set()
 
+# Shared state for REST API access
+pending_handoffs: dict[str, dict] = {}  # session_id -> {reason, customer_message, timestamp}
+session_messages: dict[str, list[dict]] = defaultdict(list)  # session_id -> [{role, content, timestamp}]
+accepted_handoffs: dict[str, str] = {}  # session_id -> agent_name
+session_user_mapping: dict[str, int] = {}  # session_id -> user_id (for customer context)
+
 
 @ws_router.websocket("/ws/customer/{session_id}")
 async def customer_websocket(websocket: WebSocket, session_id: str):
@@ -32,6 +39,13 @@ async def customer_websocket(websocket: WebSocket, session_id: str):
             message = json.loads(data)
             user_msg = message.get("message", "")
 
+            # Store customer message in shared state
+            session_messages[session_id].append({
+                "role": "customer",
+                "content": user_msg,
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+
             if session_id in handoff_sessions:
                 # Session is in handoff mode - forward to human agent
                 await _forward_to_agent(session_id, user_msg)
@@ -45,6 +59,13 @@ async def customer_websocket(websocket: WebSocket, session_id: str):
                         db=db,
                         tone=message.get("tone"),
                     )
+
+                    # Store AI response in shared state
+                    session_messages[session_id].append({
+                        "role": "ai",
+                        "content": result.message,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    })
 
                     # Send AI response to customer
                     await websocket.send_json({
@@ -96,6 +117,14 @@ async def agent_websocket(websocket: WebSocket, session_id: str):
                 # Agent sends message to customer
                 target_session = message.get("session_id")
                 agent_msg = message.get("message", "")
+
+                # Store agent message in shared state
+                session_messages[target_session].append({
+                    "role": "agent",
+                    "content": agent_msg,
+                    "timestamp": datetime.utcnow().isoformat(),
+                })
+
                 customer_ws = customer_connections.get(target_session)
                 if customer_ws:
                     await customer_ws.send_json({
@@ -139,6 +168,13 @@ async def _forward_to_agent(session_id: str, message: str):
 
 async def _broadcast_handoff_request(session_id: str, customer_message: str, reason: str | None):
     """Broadcast a handoff request to all connected agents."""
+    # Store in shared state for REST API access
+    pending_handoffs[session_id] = {
+        "reason": reason,
+        "customer_message": customer_message,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
     event = {
         "type": "handoff_request",
         "session_id": session_id,

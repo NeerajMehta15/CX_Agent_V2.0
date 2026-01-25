@@ -1,0 +1,190 @@
+{
+  "version": "1.0",
+  "description": "Sentiment analysis evaluation dataset for CX Agent",
+  "cases": [
+    {
+      "id": "neg_001",
+      "messages": [
+        {"role": "customer", "content": "This is absolutely terrible service!"}
+      ],
+      "expected_label": "negative",
+      "expected_score_range": [-1.0, -0.3],
+      "tags": ["angry", "exclamation"]
+    },
+    {
+      "id": "neg_002",
+      "messages": [
+        {"role": "customer", "content": "I've been waiting for 3 weeks and still no response. Unacceptable."}
+      ],
+      "expected_label": "negative",
+      "expected_score_range": [-1.0, -0.3],
+      "tags": ["frustrated", "waiting"]
+    },
+    {
+      "id": "neg_003",
+      "messages": [
+        {"role": "customer", "content": "I DEMAND A REFUND RIGHT NOW"}
+      ],
+      "expected_label": "negative",
+      "expected_score_range": [-1.0, -0.3],
+      "tags": ["caps", "demand", "refund"]
+    },
+    {
+      "id": "neg_004",
+      "messages": [
+        {"role": "customer", "content": "Your product is broken and your support is useless."}
+      ],
+      "expected_label": "negative",
+      "expected_score_range": [-1.0, -0.3],
+      "tags": ["complaint", "product_issue"]
+    },
+    {
+      "id": "neg_005",
+      "messages": [
+        {"role": "customer", "content": "I'm very disappointed with the quality. This is not what I expected."}
+      ],
+      "expected_label": "negative",
+      "expected_score_range": [-1.0, -0.2],
+      "tags": ["disappointed", "quality"]
+    },
+    {
+      "id": "pos_001",
+      "messages": [
+        {"role": "customer", "content": "Thank you so much! You've been incredibly helpful!"}
+      ],
+      "expected_label": "positive",
+      "expected_score_range": [0.3, 1.0],
+      "tags": ["grateful", "praise"]
+    },
+    {
+      "id": "pos_002",
+      "messages": [
+        {"role": "customer", "content": "Great service! I'm very satisfied with the resolution."}
+      ],
+      "expected_label": "positive",
+      "expected_score_range": [0.3, 1.0],
+      "tags": ["satisfied", "praise"]
+    },
+    {
+      "id": "pos_003",
+      "messages": [
+        {"role": "customer", "content": "Wow, that was fast! Really appreciate the quick response."}
+      ],
+      "expected_label": "positive",
+      "expected_score_range": [0.3, 1.0],
+      "tags": ["impressed", "speed"]
+    },
+    {
+      "id": "pos_004",
+      "messages": [
+        {"role": "customer", "content": "You made my day! This is exactly what I needed."}
+      ],
+      "expected_label": "positive",
+      "expected_score_range": [0.5, 1.0],
+      "tags": ["happy", "resolution"]
+    },
+    {
+      "id": "pos_005",
+      "messages": [
+        {"role": "customer", "content": "I love this product and your support team is amazing!"}
+      ],
+      "expected_label": "positive",
+      "expected_score_range": [0.5, 1.0],
+      "tags": ["love", "praise"]
+    },
+    {
+      "id": "neu_001",
+      "messages": [
+        {"role": "customer", "content": "Can you check the status of my order?"}
+      ],
+      "expected_label": "neutral",
+      "expected_score_range": [-0.3, 0.3],
+      "tags": ["inquiry", "status"]
+    },
+    {
+      "id": "neu_002",
+      "messages": [
+        {"role": "customer", "content": "I'd like to know about your return policy."}
+      ],
+      "expected_label": "neutral",
+      "expected_score_range": [-0.3, 0.3],
+      "tags": ["inquiry", "policy"]
+    },
+    {
+      "id": "neu_003",
+      "messages": [
+        {"role": "customer", "content": "What are your business hours?"}
+      ],
+      "expected_label": "neutral",
+      "expected_score_range": [-0.3, 0.3],
+      "tags": ["inquiry", "hours"]
+    },
+    {
+      "id": "neu_004",
+      "messages": [
+        {"role": "customer", "content": "I need to update my shipping address."}
+      ],
+      "expected_label": "neutral",
+      "expected_score_range": [-0.3, 0.3],
+      "tags": ["request", "update"]
+    },
+    {
+      "id": "neu_005",
+      "messages": [
+        {"role": "customer", "content": "Is this item in stock?"}
+      ],
+      "expected_label": "neutral",
+      "expected_score_range": [-0.3, 0.3],
+      "tags": ["inquiry", "stock"]
+    },
+    {
+      "id": "multi_001",
+      "messages": [
+        {"role": "customer", "content": "I'm frustrated with this issue."},
+        {"role": "ai", "content": "I understand your frustration. Let me help resolve this."},
+        {"role": "customer", "content": "Thank you, that's exactly what I needed!"}
+      ],
+      "expected_label": "positive",
+      "expected_score_range": [0.2, 1.0],
+      "tags": ["multi_turn", "sentiment_shift"]
+    },
+    {
+      "id": "multi_002",
+      "messages": [
+        {"role": "customer", "content": "Hi, I have a question about my order."},
+        {"role": "ai", "content": "Sure, I can help with that."},
+        {"role": "customer", "content": "It's been delayed for the third time! I'm done with this."}
+      ],
+      "expected_label": "negative",
+      "expected_score_range": [-1.0, -0.3],
+      "tags": ["multi_turn", "sentiment_degraded"]
+    },
+    {
+      "id": "edge_001",
+      "messages": [
+        {"role": "customer", "content": "ok"}
+      ],
+      "expected_label": "neutral",
+      "expected_score_range": [-0.3, 0.3],
+      "tags": ["minimal", "edge_case"]
+    },
+    {
+      "id": "edge_002",
+      "messages": [
+        {"role": "customer", "content": "..."}
+      ],
+      "expected_label": "neutral",
+      "expected_score_range": [-0.3, 0.3],
+      "tags": ["minimal", "edge_case"]
+    },
+    {
+      "id": "edge_003",
+      "messages": [
+        {"role": "customer", "content": "Fine."}
+      ],
+      "expected_label": "neutral",
+      "expected_score_range": [-0.4, 0.2],
+      "tags": ["ambiguous", "edge_case"]
+    }
+  ]
+}

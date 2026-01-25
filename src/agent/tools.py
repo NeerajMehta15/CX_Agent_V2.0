@@ -2,6 +2,7 @@ import json
 
 from sqlalchemy.orm import Session
 
+from src.api.websocket import session_user_mapping
 from src.config.permissions import can_write, can_read
 from src.database.middleware import sanitize_input, validate_column_access
 from src.database.models import User, Order, Ticket
@@ -105,11 +106,11 @@ TOOL_DEFINITIONS = [
 ]
 
 
-def execute_tool(name: str, arguments: dict, db: Session, role: str = "customer_ai") -> str:
+def execute_tool(name: str, arguments: dict, db: Session, role: str = "customer_ai", session_id: str | None = None) -> str:
     """Execute a tool call and return the result as a JSON string."""
     try:
         if name == "lookup_user":
-            return _lookup_user(db, role, **arguments)
+            return _lookup_user(db, role, session_id=session_id, **arguments)
         elif name == "get_orders":
             return _get_orders(db, role, **arguments)
         elif name == "get_tickets":
@@ -129,7 +130,7 @@ def execute_tool(name: str, arguments: dict, db: Session, role: str = "customer_
         return json.dumps({"error": "An internal error occurred."})
 
 
-def _lookup_user(db: Session, role: str, email: str = None, user_id: int = None) -> str:
+def _lookup_user(db: Session, role: str, email: str = None, user_id: int = None, session_id: str | None = None) -> str:
     if not can_read(role, "users"):
         return json.dumps({"error": "Permission denied."})
     user = None
@@ -140,6 +141,12 @@ def _lookup_user(db: Session, role: str, email: str = None, user_id: int = None)
         user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return json.dumps({"result": None, "message": "User not found."})
+
+    # Auto-link user to session for customer context
+    if session_id and user:
+        session_user_mapping[session_id] = user.id
+        logger.info(f"Auto-linked user {user.id} to session {session_id}")
+
     return json.dumps({
         "result": {
             "id": user.id,

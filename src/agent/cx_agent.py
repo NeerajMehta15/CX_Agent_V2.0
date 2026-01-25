@@ -100,7 +100,7 @@ def run_agent(
             tool_calls_made.append(fn_name)
 
             logger.info(f"Tool call: {fn_name}({fn_args})")
-            result_str = execute_tool(fn_name, fn_args, db, role)
+            result_str = execute_tool(fn_name, fn_args, db, role, session_id=session_id)
             result_data = json.loads(result_str)
             memory.add_tool_result(fn_name, result_data)
 
