@@ -3,10 +3,10 @@ import os
 import pytest
 
 # Skip if no API key (for CI environments)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+LLM_API_KEY = os.getenv("LLM_API_KEY")
 skip_no_api_key = pytest.mark.skipif(
-    not OPENAI_API_KEY,
-    reason="OPENAI_API_KEY not set"
+    not LLM_API_KEY,
+    reason="LLM_API_KEY not set"
 )
 
 

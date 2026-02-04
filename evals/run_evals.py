@@ -222,8 +222,8 @@ def main():
 
     # Check for required environment
     if args.suite not in ["quick", "api", "summary"]:
-        if not os.getenv("OPENAI_API_KEY"):
-            print("Warning: OPENAI_API_KEY not set. AI-powered tests will be skipped.")
+        if not os.getenv("LLM_API_KEY"):
+            print("Warning: LLM_API_KEY not set. AI-powered tests will be skipped.")
             print("Set the environment variable or run 'quick' suite for non-API tests.\n")
 
     # Run selected suite

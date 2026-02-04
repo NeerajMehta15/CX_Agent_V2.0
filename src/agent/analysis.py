@@ -6,7 +6,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+client = OpenAI(api_key=settings.LLM_API_KEY, base_url=settings.llm_base_url)
 
 
 def analyze_sentiment(messages: list[dict]) -> dict:
@@ -35,7 +35,7 @@ def analyze_sentiment(messages: list[dict]) -> dict:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=settings.llm_model_mini,
             messages=[
                 {
                     "role": "system",
@@ -153,7 +153,7 @@ Order by confidence (highest first). Respond ONLY with the JSON array, no additi
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=settings.llm_model_mini,
             messages=[
                 {
                     "role": "system",

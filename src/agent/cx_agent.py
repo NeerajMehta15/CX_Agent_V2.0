@@ -13,7 +13,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+client = OpenAI(api_key=settings.LLM_API_KEY, base_url=settings.llm_base_url)
 
 
 @dataclass
@@ -62,7 +62,7 @@ def run_agent(
     max_iterations = 5
     for _ in range(max_iterations):
         response = client.chat.completions.create(
-            model="gpt-4",
+            model=settings.llm_model,
             messages=messages,
             tools=TOOL_DEFINITIONS,
             tool_choice="auto",
