@@ -19,6 +19,11 @@ PROVIDER_PRESETS = {
         "model": "kimi-k2.5-preview",
         "model_mini": "kimi-k2.5-preview",
     },
+    "openai": {
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4",
+        "model_mini": "gpt-4o-mini",
+    },
 }
 
 
@@ -29,7 +34,7 @@ class Settings:
     PROMPTS_FILE: Path = BASE_DIR / "config" / "system_prompts.yaml"
 
     # LLM provider config
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "qwen3")  # "qwen3" or "kimi"
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai") 
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
     LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "")
