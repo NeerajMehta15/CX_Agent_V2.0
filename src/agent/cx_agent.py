@@ -32,7 +32,7 @@ def run_agent(
     role: str = "customer_ai",
 ) -> AgentResponse:
     """Process a user message through the CX agent and return a response."""
-    memory = get_memory(session_id)
+    memory = get_memory(session_id, db=db)
 
     # Check for repeated intent before processing
     handoff_result = check_handoff(memory, user_message)

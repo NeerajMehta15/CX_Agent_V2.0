@@ -122,3 +122,21 @@ class SmartSuggestion(BaseModel):
 class SmartSuggestionsResponse(BaseModel):
     suggestions: list[SmartSuggestion]
     sentiment: SentimentAnalysis
+
+
+# Persistent Conversation History
+class MessageOut(BaseModel):
+    id: int
+    role: str
+    content: str
+    timestamp: str | None = None
+    metadata: dict = {}
+
+
+class PaginatedHistory(BaseModel):
+    session_id: str
+    messages: list[MessageOut]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool

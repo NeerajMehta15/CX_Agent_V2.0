@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from src.database.connection import init_db, SessionLocal
-from src.database.models import User, Order, Ticket, CannedResponse
+from src.database.models import User, Order, Ticket, CannedResponse, ConversationMeta, Message
 
 
 def seed_data():
@@ -93,6 +93,79 @@ def seed_data():
         ),
     ]
     db.add_all(canned_responses)
+
+    # Create conversation metadata and sample messages
+    conv_meta = [
+        ConversationMeta(session_id="demo-session-alice", user_id=users[0].id),
+        ConversationMeta(session_id="demo-session-bob", user_id=users[1].id),
+    ]
+    db.add_all(conv_meta)
+
+    messages = [
+        # Alice's conversation about headphones
+        Message(
+            session_id="demo-session-alice",
+            role="user",
+            content="Hi, I bought some wireless headphones recently and they stopped charging.",
+            created_at=now - timedelta(hours=5),
+        ),
+        Message(
+            session_id="demo-session-alice",
+            role="assistant",
+            content="I'm sorry to hear about the charging issue with your wireless headphones. Let me look up your order details to help you with this.",
+            created_at=now - timedelta(hours=5, minutes=-1),
+        ),
+        Message(
+            session_id="demo-session-alice",
+            role="user",
+            content="It's only been a week since I got them. This is really frustrating.",
+            created_at=now - timedelta(hours=4, minutes=55),
+        ),
+        Message(
+            session_id="demo-session-alice",
+            role="assistant",
+            content="I completely understand your frustration. A week is definitely too soon for any charging issues. I've found your order for the Wireless Headphones. Since this is within our return window, I can help you with a replacement or refund. Which would you prefer?",
+            created_at=now - timedelta(hours=4, minutes=54),
+        ),
+        Message(
+            session_id="demo-session-alice",
+            role="user",
+            content="I'd like a replacement please.",
+            created_at=now - timedelta(hours=4, minutes=50),
+        ),
+        Message(
+            session_id="demo-session-alice",
+            role="assistant",
+            content="I've initiated a replacement for your Wireless Headphones. You'll receive a shipping confirmation email shortly. Is there anything else I can help you with?",
+            created_at=now - timedelta(hours=4, minutes=49),
+        ),
+        # Bob's conversation about order status
+        Message(
+            session_id="demo-session-bob",
+            role="user",
+            content="Where is my laptop stand? I ordered it days ago.",
+            created_at=now - timedelta(hours=3),
+        ),
+        Message(
+            session_id="demo-session-bob",
+            role="assistant",
+            content="Let me check on your Laptop Stand order right away. I can see your order is currently in 'pending' status. It was placed 1 day ago and is being processed for shipment.",
+            created_at=now - timedelta(hours=2, minutes=59),
+        ),
+        Message(
+            session_id="demo-session-bob",
+            role="user",
+            content="When will it actually ship?",
+            created_at=now - timedelta(hours=2, minutes=55),
+        ),
+        Message(
+            session_id="demo-session-bob",
+            role="assistant",
+            content="Based on our standard processing times, your Laptop Stand should ship within the next 24 hours. Once it ships, you'll receive a tracking number via email. Standard delivery takes 3-5 business days after shipping.",
+            created_at=now - timedelta(hours=2, minutes=54),
+        ),
+    ]
+    db.add_all(messages)
 
     db.commit()
     db.close()
