@@ -33,11 +33,7 @@ def run_agent(
     use_router: bool = False,
 ) -> AgentResponse:
     """Process a user message through the CX agent and return a response."""
-    if use_router:
-        from src.agent.graph_router import run_agent_with_router
-        return run_agent_with_router(user_message, session_id, db, tone, role)
-
-    memory = get_memory(session_id, db=db)
+    memory = get_memory(session_id)
 
     # Check for repeated intent before processing
     handoff_result = check_handoff(memory, user_message)
