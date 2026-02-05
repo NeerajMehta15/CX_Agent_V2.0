@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-page:#f5f0ea;
+  --bg-page-end:#ebe4db;
+  --bg-chat:#fffcf8;
+  --accent:#2a4a3f;
+  --accent-light:#3d6b5a;
+  --accent-glow:rgba(42,74,63,.12);
+  --terracotta:#c17050;
+  --terracotta-light:#e8a888;
+  --sage:#8aad9c;
+  --sage-light:#c8ddd3;
+  --text:#1a1a17;
+  --text-mid:#6b655e;
+  --text-light:#a09888;
+  --text-inv:#faf8f5;
+  --border:#ddd6cc;
+  --border-light:#eae5de;
+  --shadow-sm:0 1px 3px rgba(26,26,23,.06);
+  --shadow-md:0 4px 20px rgba(26,26,23,.08);
+  --shadow-lg:0 12px 48px rgba(26,26,23,.12);
+  --radius:16px;
+  --radius-sm:10px;
+  --radius-xs:6px;
+  --font-display:'Fraunces',serif;
+  --font-body:'DM Sans',system-ui,sans-serif;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+
+html,body{height:100%;font-family:var(--font-body);color:var(--text);-webkit-font-smoothing:antialiased}
+
+body{
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,var(--bg-page) 0%,var(--bg-page-end) 100%);
+  background-attachment:fixed;
+  position:relative;overflow:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(138,173,156,.18) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 70%, rgba(193,112,80,.10) 0%, transparent 60%);
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+  background-size:200px 200px;
+  pointer-events:none;z-index:0;opacity:.6;
+}
+
+/* ─── Chat Container ─── */
+.chat-wrap{
+  position:relative;z-index:1;
+  width:100%;max-width:480px;height:100dvh;max-height:760px;
+  display:flex;flex-direction:column;
+  background:var(--bg-chat);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-lg);
+  overflow:hidden;
+  border:1px solid var(--border-light);
+}
+@media(max-width:520px){
+  .chat-wrap{max-height:none;border-radius:0;border:none;box-shadow:none}
+}
+
+/* ─── Header ─── */
+.chat-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;
+  background:var(--bg-chat);
+  border-bottom:1px solid var(--border-light);
+  position:relative;z-index:10;
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{
+  width:38px;height:38px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px var(--accent-glow);
+}
+.brand-mark svg{width:20px;height:20px;fill:none;stroke:var(--text-inv);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brand-info h1{font-family:var(--font-display);font-size:17px;font-weight:500;letter-spacing:-.02em;line-height:1.1}
+.brand-status{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-light);margin-top:2px}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.status-dot.online{background:#4ade80;box-shadow:0 0 6px rgba(74,222,128,.5)}
+.status-dot.connecting{background:#fbbf24;animation:pulse-dot 1.2s infinite}
+.status-dot.offline{background:#f87171}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+
+.header-actions{display:flex;gap:6px}
+.hdr-btn{
+  width:36px;height:36px;border-radius:var(--radius-xs);border:none;
+  background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text-mid);transition:all .2s var(--ease);
+}
+.hdr-btn:hover{background:var(--border-light);color:var(--text)}
+.hdr-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ─── Settings Dropdown ─── */
+.settings-panel{
+  overflow:hidden;max-height:0;
+  background:#faf7f2;border-bottom:1px solid transparent;
+  transition:max-height .35s var(--ease),border-color .2s;
+}
+.settings-panel.open{max-height:200px;border-color:var(--border-light)}
+.settings-inner{padding:14px 20px 18px}
+.settings-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);margin-bottom:8px}
+.tone-group{display:flex;gap:6px;margin-bottom:14px}
+.tone-btn{
+  padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);
+  background:transparent;font-family:var(--font-body);font-size:13px;font-weight:500;
+  color:var(--text-mid);cursor:pointer;transition:all .2s var(--ease);
+}
+.tone-btn:hover{border-color:var(--sage);color:var(--text)}
+.tone-btn.active{background:var(--accent);border-color:var(--accent);color:var(--text-inv)}
+.new-chat-btn{
+  width:100%;padding:8px;border-radius:var(--radius-xs);border:1.5px dashed var(--border);
+  background:transparent;font-family:var(--font-body);font-size:13px;font-weight:500;
+  color:var(--text-mid);cursor:pointer;transition:all .2s var(--ease);
+}
+.new-chat-btn:hover{border-color:var(--terracotta);color:var(--terracotta);background:rgba(193,112,80,.04)}
+
+/* ─── Handoff Banner ─── */
+.handoff-banner{
+  display:none;align-items:center;gap:10px;
+  padding:10px 20px;
+  background:linear-gradient(90deg,rgba(193,112,80,.08),rgba(193,112,80,.04));
+  border-bottom:1px solid rgba(193,112,80,.15);
+  font-size:13px;color:var(--terracotta);
+  animation:banner-in .4s var(--ease);
+}
+.handoff-banner.show{display:flex}
+.handoff-banner svg{width:16px;height:16px;flex-shrink:0;stroke:var(--terracotta);fill:none;stroke-width:2;stroke-linecap:round}
+.handoff-banner .dots{display:flex;gap:3px;margin-left:auto}
+.handoff-banner .dots span{width:4px;height:4px;border-radius:50%;background:var(--terracotta);animation:bounce-dot .8s infinite}
+.handoff-banner .dots span:nth-child(2){animation-delay:.15s}
+.handoff-banner .dots span:nth-child(3){animation-delay:.3s}
+@keyframes banner-in{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}
+@keyframes bounce-dot{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
+/* ─── Messages Area ─── */
+.messages-area{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:20px 20px 8px;
+  scroll-behavior:smooth;
+  overscroll-behavior:contain;
+}
+.messages-area::-webkit-scrollbar{width:5px}
+.messages-area::-webkit-scrollbar-track{background:transparent}
+.messages-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px}
+
+/* ─── Day Separator ─── */
+.day-sep{
+  display:flex;align-items:center;gap:12px;margin:20px 0 16px;
+}
+.day-sep::before,.day-sep::after{content:'';flex:1;height:1px;background:var(--border-light)}
+.day-sep span{font-size:11px;font-weight:500;color:var(--text-light);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+
+/* ─── Message Row ─── */
+.msg-row{
+  display:flex;flex-direction:column;margin-bottom:4px;
+  animation:msg-in .4s var(--ease) both;
+}
+.msg-row.user{align-items:flex-end}
+.msg-row.ai,.msg-row.agent{align-items:flex-start}
+.msg-row.system{align-items:center}
+@keyframes msg-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── Bubble ─── */
+.bubble{
+  max-width:82%;padding:10px 15px;line-height:1.55;font-size:14px;
+  word-wrap:break-word;position:relative;
+}
+.msg-row.user .bubble{
+  background:var(--accent);color:var(--text-inv);
+  border-radius:var(--radius) var(--radius) 4px var(--radius);
+}
+.msg-row.ai .bubble{
+  background:#f7f4ef;color:var(--text);
+  border:1px solid var(--border-light);
+  border-radius:var(--radius) var(--radius) var(--radius) 4px;
+}
+.msg-row.agent .bubble{
+  background:linear-gradient(135deg,#eef6f2,#e8f0ec);
+  color:var(--text);
+  border:1px solid var(--sage-light);
+  border-radius:var(--radius) var(--radius) var(--radius) 4px;
+}
+.msg-row.agent .bubble::before{
+  content:'Agent';
+  display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--sage);margin-bottom:4px;
+}
+.msg-row.system .bubble{
+  background:transparent;color:var(--text-light);font-size:12px;font-style:italic;
+  text-align:center;padding:8px 16px;
+}
+
+/* ─── Message Meta ─── */
+.msg-meta{
+  display:flex;align-items:center;gap:6px;
+  padding:3px 4px 0;font-size:11px;color:var(--text-light);
+}
+.msg-row.user .msg-meta{flex-direction:row-reverse}
+
+/* ─── Feedback Buttons ─── */
+.msg-feedback{display:flex;gap:2px;margin-top:4px}
+.fb-btn{
+  width:26px;height:26px;border-radius:50%;border:none;
+  background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text-light);transition:all .2s;font-size:13px;
+}
+.fb-btn:hover{background:var(--border-light);color:var(--text)}
+.fb-btn.active-up{color:var(--accent);background:var(--accent-glow)}
+.fb-btn.active-down{color:var(--terracotta);background:rgba(193,112,80,.1)}
+
+/* ─── Typing Indicator ─── */
+.typing-row{
+  display:none;align-items:flex-start;margin-bottom:4px;
+  animation:msg-in .3s var(--ease) both;
+}
+.typing-row.show{display:flex}
+.typing-bubble{
+  display:flex;align-items:center;gap:8px;
+  padding:12px 16px;
+  background:#f7f4ef;border:1px solid var(--border-light);
+  border-radius:var(--radius) var(--radius) var(--radius) 4px;
+}
+.typing-dots{display:flex;gap:4px}
+.typing-dots span{
+  width:6px;height:6px;border-radius:50%;background:var(--text-light);
+  animation:typing-bounce .9s infinite;
+}
+.typing-dots span:nth-child(2){animation-delay:.15s}
+.typing-dots span:nth-child(3){animation-delay:.3s}
+@keyframes typing-bounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+
+/* ─── Quick Actions ─── */
+.quick-actions{
+  display:flex;gap:6px;padding:8px 20px;
+  overflow-x:auto;scrollbar-width:none;
+  border-top:1px solid var(--border-light);
+  background:var(--bg-chat);
+}
+.quick-actions::-webkit-scrollbar{display:none}
+.qa-btn{
+  flex-shrink:0;padding:6px 14px;border-radius:20px;
+  border:1.5px solid var(--border);background:transparent;
+  font-family:var(--font-body);font-size:12px;font-weight:500;
+  color:var(--text-mid);cursor:pointer;transition:all .2s var(--ease);
+  white-space:nowrap;
+}
+.qa-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+
+/* ─── Input Area ─── */
+.input-area{
+  display:flex;align-items:flex-end;gap:8px;
+  padding:12px 16px 16px;
+  background:var(--bg-chat);
+  border-top:1px solid var(--border-light);
+}
+.input-wrap{
+  flex:1;display:flex;align-items:flex-end;
+  background:#f7f4ef;border-radius:var(--radius-sm);
+  border:1.5px solid var(--border);
+  transition:border-color .2s;
+  padding:2px;
+}
+.input-wrap:focus-within{border-color:var(--sage)}
+.input-wrap textarea{
+  flex:1;border:none;background:transparent;
+  padding:10px 12px;font-family:var(--font-body);font-size:14px;line-height:1.5;
+  color:var(--text);resize:none;outline:none;
+  min-height:42px;max-height:120px;
+}
+.input-wrap textarea::placeholder{color:var(--text-light)}
+.attach-btn{
+  width:36px;height:36px;border-radius:var(--radius-xs);border:none;
+  background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text-light);transition:color .2s;flex-shrink:0;align-self:center;
+}
+.attach-btn:hover{color:var(--text-mid)}
+.attach-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.send-btn{
+  width:42px;height:42px;border-radius:var(--radius-sm);border:none;
+  background:var(--accent);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s var(--ease);flex-shrink:0;
+}
+.send-btn:hover{background:var(--accent-light);transform:scale(1.04)}
+.send-btn:active{transform:scale(.96)}
+.send-btn:disabled{opacity:.4;cursor:default;transform:none}
+.send-btn svg{width:18px;height:18px;fill:none;stroke:var(--text-inv);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ─── Welcome Message ─── */
+.welcome{
+  text-align:center;padding:30px 20px 20px;
+}
+.welcome-icon{
+  width:56px;height:56px;margin:0 auto 16px;border-radius:14px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-light));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 16px var(--accent-glow);
+}
+.welcome-icon svg{width:28px;height:28px;fill:none;stroke:var(--text-inv);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.welcome h2{font-family:var(--font-display);font-size:20px;font-weight:500;margin-bottom:6px;letter-spacing:-.02em}
+.welcome p{font-size:13px;color:var(--text-mid);line-height:1.5;max-width:280px;margin:0 auto}
+
+/* ─── Powered By ─── */
+.powered{
+  text-align:center;padding:6px;font-size:10px;color:var(--text-light);
+  letter-spacing:.04em;
+}
+</style>
+</head>
+<body>
+
+<div class="chat-wrap">
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="brand-info">
+        <h1>Support</h1>
+        <div class="brand-status">
+          <span class="status-dot connecting" id="statusDot"></span>
+          <span id="statusText">Connecting...</span>
+        </div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="hdr-btn" id="settingsToggle" title="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-inner">
+      <div class="settings-label">Conversation Tone</div>
+      <div class="tone-group" id="toneGroup">
+        <button class="tone-btn active" data-tone="friendly">Friendly</button>
+        <button class="tone-btn" data-tone="professional">Professional</button>
+        <button class="tone-btn" data-tone="playful">Playful</button>
+      </div>
+      <button class="new-chat-btn" id="newChatBtn">Start New Conversation</button>
+    </div>
+  </div>
+
+  <!-- Handoff Banner -->
+  <div class="handoff-banner" id="handoffBanner">
+    <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+    <span>Connecting you with a support agent</span>
+    <div class="dots"><span></span><span></span><span></span></div>
+  </div>
+
+  <!-- Messages Area -->
+  <div class="messages-area" id="messagesArea">
+    <div class="welcome" id="welcomeBlock">
+      <div class="welcome-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <h2>Hi there!</h2>
+      <p>We're here to help. Ask us anything about your orders, tickets, or account.</p>
+    </div>
+  </div>
+
+  <!-- Typing Indicator -->
+  <div class="typing-row" id="typingRow">
+    <div class="typing-bubble">
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="quick-actions" id="quickActions">
+    <button class="qa-btn" data-msg="Where is my order?">Track Order</button>
+    <button class="qa-btn" data-msg="I'd like a refund">Request Refund</button>
+    <button class="qa-btn" data-msg="I need to update my email">Update Email</button>
+    <button class="qa-btn" data-msg="I have a problem with my order">Report Issue</button>
+  </div>
+
+  <!-- Input Area -->
+  <div class="input-area">
+    <div class="input-wrap">
+      <button class="attach-btn" title="Attach file">
+        <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+      <textarea id="msgInput" rows="1" placeholder="Type your message..."></textarea>
+    </div>
+    <button class="send-btn" id="sendBtn" disabled title="Send message">
+      <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+
+  <div class="powered">Powered by CX Agent</div>
+</div>
+
+<script>
+(function(){
+  /* ─── State ─── */
+  const API = location.origin;
+  const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+  let sessionId = localStorage.getItem('cx_session') || crypto.randomUUID();
+  localStorage.setItem('cx_session', sessionId);
+  let tone = 'friendly';
+  let ws = null;
+  let connected = false;
+  let handoffActive = false;
+  let messageCount = 0;
+
+  /* ─── DOM ─── */
+  const $ = s => document.querySelector(s);
+  const messagesArea = $('#messagesArea');
+  const msgInput = $('#msgInput');
+  const sendBtn = $('#sendBtn');
+  const typingRow = $('#typingRow');
+  const statusDot = $('#statusDot');
+  const statusText = $('#statusText');
+  const settingsToggle = $('#settingsToggle');
+  const settingsPanel = $('#settingsPanel');
+  const quickActions = $('#quickActions');
+  const handoffBanner = $('#handoffBanner');
+  const welcomeBlock = $('#welcomeBlock');
+
+  /* ─── WebSocket ─── */
+  function connect() {
+    if (ws && ws.readyState <= 1) return;
+    setStatus('connecting');
+    ws = new WebSocket(`${WS_URL}/ws/customer/${sessionId}`);
+
+    ws.onopen = () => { setStatus('online'); };
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      hideTyping();
+      if (data.type === 'ai_response') {
+        addMessage('ai', data.message);
+        if (data.handoff) {
+          handoffActive = true;
+          handoffBanner.classList.add('show');
+        }
+      } else if (data.type === 'agent_joined') {
+        addMessage('system', data.message);
+        handoffBanner.querySelector('span').textContent = 'You\'re now speaking with a support agent';
+        handoffBanner.querySelector('.dots').style.display = 'none';
+      } else if (data.type === 'agent_message') {
+        addMessage('agent', data.message);
+      }
+    };
+
+    ws.onclose = () => {
+      setStatus('offline');
+      setTimeout(connect, 3000);
+    };
+    ws.onerror = () => { ws.close(); };
+  }
+
+  function setStatus(state) {
+    connected = state === 'online';
+    statusDot.className = 'status-dot ' + state;
+    statusText.textContent = state === 'online' ? 'Online' : state === 'connecting' ? 'Connecting...' : 'Reconnecting...';
+  }
+
+  /* ─── Send ─── */
+  function send() {
+    const text = msgInput.value.trim();
+    if (!text || !ws || ws.readyState !== 1) return;
+    addMessage('user', text);
+    ws.send(JSON.stringify({ message: text, tone }));
+    msgInput.value = '';
+    autoResize();
+    sendBtn.disabled = true;
+    showTyping();
+  }
+
+  /* ─── Messages ─── */
+  function addMessage(role, text) {
+    if (messageCount === 0) welcomeBlock.style.display = 'none';
+    if (messageCount === 0) quickActions.style.display = 'none';
+    messageCount++;
+
+    const row = document.createElement('div');
+    row.className = `msg-row ${role}`;
+    row.style.animationDelay = '0s';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    row.appendChild(bubble);
+
+    if (role !== 'system') {
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+      const time = document.createElement('span');
+      const now = new Date();
+      time.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      meta.appendChild(time);
+      row.appendChild(meta);
+    }
+
+    // Feedback buttons for AI messages
+    if (role === 'ai') {
+      const fb = document.createElement('div');
+      fb.className = 'msg-feedback';
+      fb.innerHTML = `<button class="fb-btn" data-type="up" title="Helpful">&#x1F44D;</button><button class="fb-btn" data-type="down" title="Not helpful">&#x1F44E;</button>`;
+      fb.querySelectorAll('.fb-btn').forEach(btn => {
+        btn.onclick = () => {
+          fb.querySelectorAll('.fb-btn').forEach(b => b.className = 'fb-btn');
+          btn.classList.add(btn.dataset.type === 'up' ? 'active-up' : 'active-down');
+        };
+      });
+      row.appendChild(fb);
+    }
+
+    messagesArea.appendChild(row);
+    messagesArea.scrollTop = messagesArea.scrollHeight;
+  }
+
+  function showTyping() { typingRow.classList.add('show'); messagesArea.scrollTop = messagesArea.scrollHeight; }
+  function hideTyping() { typingRow.classList.remove('show'); }
+
+  /* ─── Input ─── */
+  function autoResize() {
+    msgInput.style.height = 'auto';
+    msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+  }
+
+  msgInput.addEventListener('input', () => {
+    autoResize();
+    sendBtn.disabled = !msgInput.value.trim();
+  });
+  msgInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  sendBtn.addEventListener('click', send);
+
+  /* ─── Quick Actions ─── */
+  quickActions.querySelectorAll('.qa-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      msgInput.value = btn.dataset.msg;
+      autoResize();
+      sendBtn.disabled = false;
+      msgInput.focus();
+    });
+  });
+
+  /* ─── Settings ─── */
+  settingsToggle.addEventListener('click', () => {
+    settingsPanel.classList.toggle('open');
+  });
+
+  $('#toneGroup').addEventListener('click', (e) => {
+    if (!e.target.classList.contains('tone-btn')) return;
+    document.querySelectorAll('.tone-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    tone = e.target.dataset.tone;
+  });
+
+  $('#newChatBtn').addEventListener('click', () => {
+    if (!confirm('Start a new conversation? Current chat history will be cleared.')) return;
+    sessionId = crypto.randomUUID();
+    localStorage.setItem('cx_session', sessionId);
+    messagesArea.innerHTML = '';
+    welcomeBlock.style.display = '';
+    messagesArea.prepend(welcomeBlock);
+    quickActions.style.display = '';
+    messageCount = 0;
+    handoffActive = false;
+    handoffBanner.classList.remove('show');
+    handoffBanner.querySelector('span').textContent = 'Connecting you with a support agent';
+    handoffBanner.querySelector('.dots').style.display = '';
+    settingsPanel.classList.remove('open');
+    if (ws) ws.close();
+    connect();
+  });
+
+  /* ─── Init ─── */
+  connect();
+})();
+</script>
+</body>
+</html>

@@ -5,7 +5,6 @@ from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
-from src.agent.cx_agent import run_agent
 from src.database.connection import SessionLocal
 from src.utils.logger import get_logger
 
@@ -50,7 +49,8 @@ async def customer_websocket(websocket: WebSocket, session_id: str):
                 # Session is in handoff mode - forward to human agent
                 await _forward_to_agent(session_id, user_msg)
             else:
-                # Process through AI agent
+                # Process through AI agent (lazy import to avoid circular dependency)
+                from src.agent.cx_agent import run_agent
                 db = SessionLocal()
                 try:
                     result = run_agent(
@@ -133,6 +133,7 @@ async def agent_websocket(websocket: WebSocket, session_id: str):
                     })
 
                 # Generate co-pilot suggestion for agent
+                from src.agent.cx_agent import run_agent
                 db = SessionLocal()
                 try:
                     copilot_result = run_agent(

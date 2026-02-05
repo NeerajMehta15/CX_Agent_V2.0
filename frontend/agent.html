@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-0:#090b11;
+  --bg-1:#0f1219;
+  --bg-2:#161a24;
+  --bg-3:#1e2330;
+  --bg-4:#272d3d;
+  --bg-hover:#1c2133;
+  --mint:#6ee7b7;
+  --mint-dim:rgba(110,231,183,.12);
+  --mint-glow:rgba(110,231,183,.2);
+  --amber:#fbbf24;
+  --amber-dim:rgba(251,191,36,.12);
+  --rose:#f87171;
+  --rose-dim:rgba(248,113,113,.12);
+  --sky:#60a5fa;
+  --sky-dim:rgba(96,165,250,.12);
+  --violet:#a78bfa;
+  --text-0:#f0f2f8;
+  --text-1:#c4c9d8;
+  --text-2:#8892a8;
+  --text-3:#5a6378;
+  --border:rgba(255,255,255,.06);
+  --border-h:rgba(255,255,255,.1);
+  --radius:10px;
+  --radius-sm:6px;
+  --font-mono:'IBM Plex Mono',monospace;
+  --font-ui:'Outfit',system-ui,sans-serif;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html,body{height:100%;font-family:var(--font-ui);color:var(--text-1);background:var(--bg-0);-webkit-font-smoothing:antialiased;overflow:hidden}
+
+/* ─── Login Overlay ─── */
+.login-overlay{
+  position:fixed;inset:0;z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg-0);
+}
+.login-overlay.hidden{display:none}
+.login-card{
+  width:380px;padding:48px 40px;text-align:center;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:16px;
+  box-shadow:0 24px 80px rgba(0,0,0,.5);
+}
+.login-card .logo{
+  width:52px;height:52px;margin:0 auto 24px;border-radius:14px;
+  background:linear-gradient(135deg,var(--mint),#34d399);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 24px var(--mint-glow);
+}
+.login-card .logo svg{width:26px;height:26px;stroke:#0f1219;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.login-card h1{font-size:22px;font-weight:600;color:var(--text-0);margin-bottom:6px;letter-spacing:-.02em}
+.login-card p{font-size:14px;color:var(--text-2);margin-bottom:28px}
+.login-card input{
+  width:100%;padding:12px 16px;border-radius:var(--radius);
+  border:1.5px solid var(--border-h);background:var(--bg-3);
+  font-family:var(--font-ui);font-size:14px;color:var(--text-0);
+  outline:none;transition:border-color .2s;margin-bottom:16px;
+}
+.login-card input:focus{border-color:var(--mint)}
+.login-card input::placeholder{color:var(--text-3)}
+.login-card button{
+  width:100%;padding:12px;border-radius:var(--radius);border:none;
+  background:linear-gradient(135deg,var(--mint),#34d399);
+  font-family:var(--font-ui);font-size:14px;font-weight:600;color:var(--bg-0);
+  cursor:pointer;transition:all .2s var(--ease);
+}
+.login-card button:hover{transform:translateY(-1px);box-shadow:0 4px 20px var(--mint-glow)}
+.login-card button:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none}
+
+/* ─── Dashboard Layout ─── */
+.dashboard{display:none;height:100vh;grid-template-columns:280px 1fr 320px;grid-template-rows:56px 1fr;overflow:hidden}
+.dashboard.active{display:grid}
+
+/* ─── Topbar ─── */
+.topbar{
+  grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;background:var(--bg-1);border-bottom:1px solid var(--border);
+  z-index:10;
+}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.topbar-logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;color:var(--text-0)}
+.topbar-logo .mark{
+  width:28px;height:28px;border-radius:7px;
+  background:linear-gradient(135deg,var(--mint),#34d399);
+  display:flex;align-items:center;justify-content:center;
+}
+.topbar-logo .mark svg{width:14px;height:14px;stroke:var(--bg-0);fill:none;stroke-width:2.5;stroke-linecap:round}
+.topbar-sep{width:1px;height:24px;background:var(--border)}
+.topbar-agent{font-size:13px;color:var(--text-2)}
+.topbar-agent strong{color:var(--mint);font-weight:500}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.topbar-stat{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:20px;
+  font-size:12px;font-weight:500;font-family:var(--font-mono);
+}
+.topbar-stat.queue{background:var(--amber-dim);color:var(--amber)}
+.topbar-stat.active-s{background:var(--mint-dim);color:var(--mint)}
+.topbar-stat .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.logout-btn{
+  padding:6px 14px;border-radius:var(--radius-sm);border:1px solid var(--border-h);
+  background:transparent;font-family:var(--font-ui);font-size:12px;font-weight:500;
+  color:var(--text-2);cursor:pointer;transition:all .2s;margin-left:6px;
+}
+.logout-btn:hover{border-color:var(--rose);color:var(--rose);background:var(--rose-dim)}
+
+/* ─── Sidebar ─── */
+.sidebar{
+  background:var(--bg-1);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sidebar-section{padding:16px;border-bottom:1px solid var(--border)}
+.sidebar-section:last-child{border-bottom:none;flex:1;overflow-y:auto}
+.sidebar-title{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-3);margin-bottom:10px;
+}
+.sidebar-title .badge{
+  padding:2px 8px;border-radius:10px;font-family:var(--font-mono);font-size:11px;font-weight:600;
+}
+.sidebar-title .badge.pending{background:var(--amber-dim);color:var(--amber)}
+.sidebar-title .badge.active{background:var(--mint-dim);color:var(--mint)}
+.sidebar-scroll{overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:var(--bg-4) transparent}
+
+/* ─── Handoff Card ─── */
+.handoff-card{
+  padding:12px;border-radius:var(--radius);
+  background:var(--bg-2);border:1px solid var(--border);
+  margin-bottom:8px;cursor:pointer;transition:all .2s var(--ease);
+  animation:card-in .3s var(--ease) both;
+}
+.handoff-card:hover{border-color:var(--border-h);background:var(--bg-3)}
+@keyframes card-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.hc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.hc-session{font-family:var(--font-mono);font-size:11px;color:var(--text-2)}
+.hc-time{font-size:11px;color:var(--text-3)}
+.hc-reason{
+  display:inline-block;padding:2px 8px;border-radius:4px;
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+  margin-bottom:6px;
+}
+.hc-reason.repeated_intent{background:var(--amber-dim);color:var(--amber)}
+.hc-reason.data_gap{background:var(--sky-dim);color:var(--sky)}
+.hc-reason.hallucination_risk{background:var(--rose-dim);color:var(--rose)}
+.hc-reason.max_iterations_exceeded{background:var(--violet);background:rgba(167,139,250,.12);color:var(--violet)}
+.hc-msg{font-size:13px;color:var(--text-1);line-height:1.4;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hc-accept{
+  width:100%;padding:7px;border-radius:var(--radius-sm);border:none;
+  background:var(--mint-dim);font-family:var(--font-ui);font-size:12px;font-weight:600;
+  color:var(--mint);cursor:pointer;transition:all .2s;
+}
+.hc-accept:hover{background:var(--mint);color:var(--bg-0)}
+.hc-accept:disabled{opacity:.4;cursor:default}
+
+/* ─── Session Card ─── */
+.session-card{
+  padding:10px 12px;border-radius:var(--radius-sm);
+  background:var(--bg-2);border:1px solid var(--border);
+  margin-bottom:6px;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:10px;
+}
+.session-card:hover{border-color:var(--mint);background:var(--bg-3)}
+.session-card.active-card{border-color:var(--mint);background:var(--mint-dim)}
+.sc-dot{width:8px;height:8px;border-radius:50%;background:var(--mint);flex-shrink:0;box-shadow:0 0 8px var(--mint-glow)}
+.sc-info{flex:1;min-width:0}
+.sc-id{font-family:var(--font-mono);font-size:11px;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-time{font-size:10px;color:var(--text-3)}
+
+/* ─── Main Content ─── */
+.main-content{display:flex;flex-direction:column;overflow:hidden;background:var(--bg-0)}
+
+/* Empty State */
+.empty-state{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:40px;
+}
+.empty-state .icon{
+  width:64px;height:64px;border-radius:16px;margin-bottom:20px;
+  background:var(--bg-2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+}
+.empty-state .icon svg{width:28px;height:28px;stroke:var(--text-3);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.empty-state h2{font-size:18px;font-weight:500;color:var(--text-1);margin-bottom:6px}
+.empty-state p{font-size:13px;color:var(--text-3);max-width:320px;line-height:1.5}
+
+/* ─── Chat Panel ─── */
+.chat-panel{flex:1;display:none;flex-direction:column;overflow:hidden}
+.chat-panel.active{display:flex}
+
+.chat-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;border-bottom:1px solid var(--border);background:var(--bg-1);
+}
+.chat-hdr-left{display:flex;align-items:center;gap:12px}
+.chat-hdr-session{font-family:var(--font-mono);font-size:13px;color:var(--text-0)}
+.chat-hdr-name{font-size:13px;color:var(--text-2)}
+.sentiment-badge{
+  display:flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:12px;
+  font-size:11px;font-weight:600;font-family:var(--font-mono);
+}
+.sentiment-badge.positive{background:var(--mint-dim);color:var(--mint)}
+.sentiment-badge.negative{background:var(--rose-dim);color:var(--rose)}
+.sentiment-badge.neutral{background:rgba(255,255,255,.06);color:var(--text-2)}
+.chat-hdr-actions{display:flex;gap:6px}
+.ch-btn{
+  padding:5px 12px;border-radius:var(--radius-sm);
+  border:1px solid var(--border-h);background:transparent;
+  font-family:var(--font-ui);font-size:11px;font-weight:500;
+  color:var(--text-2);cursor:pointer;transition:all .2s;
+}
+.ch-btn:hover{color:var(--text-0);border-color:var(--text-2)}
+.ch-btn.resolve:hover{color:var(--mint);border-color:var(--mint);background:var(--mint-dim)}
+.ch-btn.escalate:hover{color:var(--amber);border-color:var(--amber);background:var(--amber-dim)}
+
+/* Chat Messages */
+.chat-msgs{
+  flex:1;overflow-y:auto;padding:20px;
+  scrollbar-width:thin;scrollbar-color:var(--bg-4) transparent;
+}
+.cm-row{display:flex;flex-direction:column;margin-bottom:12px;animation:card-in .3s var(--ease) both}
+.cm-row.customer{align-items:flex-start}
+.cm-row.ai{align-items:flex-start}
+.cm-row.agent{align-items:flex-end}
+.cm-row.system{align-items:center}
+
+.cm-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;padding:0 2px}
+.cm-label.customer{color:var(--sky)}
+.cm-label.ai{color:var(--violet)}
+.cm-label.agent{color:var(--mint)}
+
+.cm-bubble{
+  max-width:75%;padding:10px 14px;font-size:13.5px;line-height:1.55;
+  word-wrap:break-word;border-radius:var(--radius) var(--radius) var(--radius) 4px;
+}
+.cm-row.customer .cm-bubble{background:var(--bg-3);color:var(--text-0);border:1px solid var(--border)}
+.cm-row.ai .cm-bubble{background:rgba(167,139,250,.08);color:var(--text-1);border:1px solid rgba(167,139,250,.15)}
+.cm-row.agent .cm-bubble{background:var(--mint-dim);color:var(--text-0);border:1px solid rgba(110,231,183,.2);border-radius:var(--radius) var(--radius) 4px var(--radius)}
+.cm-row.system .cm-bubble{background:transparent;color:var(--text-3);font-size:12px;font-style:italic;text-align:center}
+.cm-time{font-size:10px;color:var(--text-3);margin-top:3px;padding:0 2px}
+
+/* ─── Suggestions Bar ─── */
+.suggestions-bar{
+  border-top:1px solid var(--border);background:var(--bg-1);
+  padding:10px 16px;display:none;
+}
+.suggestions-bar.show{display:block}
+.sbar-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sbar-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)}
+.sbar-close{
+  width:20px;height:20px;border-radius:4px;border:none;background:transparent;
+  color:var(--text-3);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;
+}
+.sbar-close:hover{color:var(--text-1);background:var(--bg-3)}
+.suggestion-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sug-chip{
+  padding:6px 12px;border-radius:20px;
+  background:var(--bg-3);border:1px solid var(--border);
+  font-size:12px;color:var(--text-1);cursor:pointer;
+  transition:all .2s;max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.sug-chip:hover{border-color:var(--mint);color:var(--mint);background:var(--mint-dim)}
+
+/* ─── Canned Responses Dropdown ─── */
+.canned-dropdown{
+  position:absolute;bottom:100%;left:0;right:0;
+  background:var(--bg-2);border:1px solid var(--border-h);
+  border-radius:var(--radius) var(--radius) 0 0;
+  max-height:240px;overflow-y:auto;display:none;
+  box-shadow:0 -8px 30px rgba(0,0,0,.3);
+  scrollbar-width:thin;scrollbar-color:var(--bg-4) transparent;
+}
+.canned-dropdown.show{display:block}
+.canned-tabs{
+  display:flex;gap:2px;padding:8px 12px 4px;
+  border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg-2);z-index:1;
+}
+.canned-tab{
+  padding:4px 10px;border-radius:4px;border:none;background:transparent;
+  font-family:var(--font-ui);font-size:11px;font-weight:500;
+  color:var(--text-3);cursor:pointer;transition:all .15s;
+}
+.canned-tab:hover{color:var(--text-1)}
+.canned-tab.active{background:var(--bg-4);color:var(--text-0)}
+.canned-item{
+  padding:10px 14px;cursor:pointer;transition:background .15s;
+  border-bottom:1px solid var(--border);
+}
+.canned-item:last-child{border-bottom:none}
+.canned-item:hover{background:var(--bg-hover)}
+.ci-top{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.ci-shortcut{font-family:var(--font-mono);font-size:11px;color:var(--mint);font-weight:500}
+.ci-title{font-size:12px;font-weight:500;color:var(--text-0)}
+.ci-preview{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ─── Chat Input ─── */
+.chat-input-wrap{
+  position:relative;
+  padding:12px 16px 16px;border-top:1px solid var(--border);background:var(--bg-1);
+}
+.chat-input-row{display:flex;align-items:flex-end;gap:8px}
+.ci-tools{display:flex;gap:4px;align-self:center}
+.ci-tool-btn{
+  width:32px;height:32px;border-radius:var(--radius-sm);border:none;
+  background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text-3);transition:all .2s;
+}
+.ci-tool-btn:hover{color:var(--text-1);background:var(--bg-3)}
+.ci-tool-btn.active{color:var(--mint);background:var(--mint-dim)}
+.ci-tool-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ci-textarea-wrap{
+  flex:1;background:var(--bg-3);border-radius:var(--radius);border:1.5px solid var(--border);
+  transition:border-color .2s;
+}
+.ci-textarea-wrap:focus-within{border-color:var(--mint)}
+.ci-textarea-wrap textarea{
+  width:100%;border:none;background:transparent;padding:10px 14px;
+  font-family:var(--font-ui);font-size:13px;line-height:1.5;color:var(--text-0);
+  resize:none;outline:none;min-height:40px;max-height:100px;
+}
+.ci-textarea-wrap textarea::placeholder{color:var(--text-3)}
+.ci-send{
+  width:40px;height:40px;border-radius:var(--radius);border:none;
+  background:var(--mint);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .2s var(--ease);flex-shrink:0;
+}
+.ci-send:hover{background:#5ddba8;transform:scale(1.04)}
+.ci-send:active{transform:scale(.96)}
+.ci-send:disabled{opacity:.3;cursor:default;transform:none}
+.ci-send svg{width:16px;height:16px;fill:none;stroke:var(--bg-0);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+
+/* ─── Context Panel ─── */
+.context-panel{
+  background:var(--bg-1);border-left:1px solid var(--border);
+  overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg-4) transparent;
+  display:none;
+}
+.context-panel.active{display:block}
+.ctx-section{padding:16px 18px;border-bottom:1px solid var(--border)}
+.ctx-title{
+  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-3);margin-bottom:10px;display:flex;align-items:center;gap:6px;
+}
+.ctx-title svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+
+/* Profile Card */
+.profile-card{
+  padding:14px;border-radius:var(--radius);background:var(--bg-2);border:1px solid var(--border);
+}
+.profile-card .avatar{
+  width:40px;height:40px;border-radius:10px;
+  background:linear-gradient(135deg,var(--sky),var(--violet));
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:600;color:#fff;margin-bottom:10px;
+}
+.profile-card .pname{font-size:14px;font-weight:600;color:var(--text-0);margin-bottom:2px}
+.profile-card .pdetail{font-size:12px;color:var(--text-2);margin-bottom:1px;display:flex;align-items:center;gap:5px}
+.profile-card .pdetail svg{width:12px;height:12px;stroke:var(--text-3);fill:none;stroke-width:2;stroke-linecap:round}
+.no-profile{
+  padding:14px;border-radius:var(--radius);background:var(--bg-2);border:1px dashed var(--border-h);
+  text-align:center;font-size:13px;color:var(--text-3);
+}
+.no-profile input{
+  width:100%;padding:8px 10px;border-radius:var(--radius-sm);
+  border:1px solid var(--border-h);background:var(--bg-3);
+  font-family:var(--font-ui);font-size:12px;color:var(--text-0);
+  outline:none;margin:8px 0 6px;
+}
+.no-profile input:focus{border-color:var(--mint)}
+.no-profile button{
+  padding:6px 14px;border-radius:var(--radius-sm);border:none;
+  background:var(--mint-dim);font-family:var(--font-ui);font-size:12px;font-weight:500;
+  color:var(--mint);cursor:pointer;transition:all .2s;
+}
+.no-profile button:hover{background:var(--mint);color:var(--bg-0)}
+
+/* Orders & Tickets */
+.ctx-list{display:flex;flex-direction:column;gap:6px}
+.ctx-item{
+  padding:10px 12px;border-radius:var(--radius-sm);
+  background:var(--bg-2);border:1px solid var(--border);
+  font-size:12px;
+}
+.ctx-item-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.ctx-item-label{color:var(--text-0);font-weight:500}
+.ctx-item-badge{
+  padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.badge-pending{background:var(--amber-dim);color:var(--amber)}
+.badge-shipped{background:var(--sky-dim);color:var(--sky)}
+.badge-delivered{background:var(--mint-dim);color:var(--mint)}
+.badge-refunded{background:var(--rose-dim);color:var(--rose)}
+.badge-open{background:var(--amber-dim);color:var(--amber)}
+.badge-in_progress{background:var(--sky-dim);color:var(--sky)}
+.badge-resolved{background:var(--mint-dim);color:var(--mint)}
+.badge-escalated{background:var(--rose-dim);color:var(--rose)}
+.badge-low{background:rgba(255,255,255,.06);color:var(--text-2)}
+.badge-medium{background:var(--amber-dim);color:var(--amber)}
+.badge-high{background:rgba(248,113,113,.12);color:var(--rose)}
+.badge-critical{background:var(--rose);color:#fff}
+.ctx-item-detail{color:var(--text-2);font-size:11px}
+.ctx-empty{font-size:12px;color:var(--text-3);font-style:italic;padding:8px 0}
+
+/* ─── Copilot Panel ─── */
+.copilot-section{padding:16px 18px}
+.copilot-box{
+  padding:12px;border-radius:var(--radius);
+  background:linear-gradient(135deg,rgba(110,231,183,.06),rgba(96,165,250,.04));
+  border:1px solid rgba(110,231,183,.12);
+}
+.copilot-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mint);margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.copilot-label svg{width:12px;height:12px;stroke:var(--mint);fill:none;stroke-width:2;stroke-linecap:round}
+.copilot-text{font-size:13px;color:var(--text-1);line-height:1.5}
+.copilot-use{
+  margin-top:8px;padding:5px 12px;border-radius:var(--radius-sm);border:none;
+  background:var(--mint-dim);font-family:var(--font-ui);font-size:11px;font-weight:600;
+  color:var(--mint);cursor:pointer;transition:all .2s;
+}
+.copilot-use:hover{background:var(--mint);color:var(--bg-0)}
+.copilot-loading{font-size:12px;color:var(--text-3);font-style:italic}
+.copilot-get{
+  width:100%;padding:8px;border-radius:var(--radius-sm);border:1px dashed var(--border-h);
+  background:transparent;font-family:var(--font-ui);font-size:12px;font-weight:500;
+  color:var(--text-3);cursor:pointer;transition:all .2s;
+}
+.copilot-get:hover{border-color:var(--mint);color:var(--mint)}
+
+/* Utility */
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- Login Overlay -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    <h1>Agent Dashboard</h1>
+    <p>Enter your name to access the support queue</p>
+    <input type="text" id="agentNameInput" placeholder="Your name" autofocus>
+    <button id="loginBtn" disabled>Enter Dashboard</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="dashboard" id="dashboard">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">
+        <div class="mark"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        CX Dashboard
+      </div>
+      <div class="topbar-sep"></div>
+      <div class="topbar-agent">Signed in as <strong id="agentDisplay"></strong></div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-stat queue"><span class="dot"></span> <span id="queueCount">0</span> in queue</div>
+      <div class="topbar-stat active-s"><span class="dot"></span> <span id="activeCount">0</span> active</div>
+      <button class="logout-btn" id="logoutBtn">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Pending Handoffs <span class="badge pending" id="pendingBadge">0</span></div>
+      <div id="handoffList"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Active Sessions <span class="badge active" id="activeBadge">0</span></div>
+      <div class="sidebar-scroll" id="sessionList"></div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="empty-state" id="emptyState">
+      <div class="icon">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <h2>No active conversation</h2>
+      <p>Accept a handoff from the queue or select an active session to begin.</p>
+    </div>
+
+    <div class="chat-panel" id="chatPanel">
+      <div class="chat-hdr">
+        <div class="chat-hdr-left">
+          <span class="chat-hdr-session" id="chatSession"></span>
+          <span class="chat-hdr-name" id="chatCustomerName"></span>
+          <span class="sentiment-badge neutral" id="sentimentBadge">--</span>
+        </div>
+        <div class="chat-hdr-actions">
+          <button class="ch-btn resolve" id="resolveBtn">Resolve</button>
+          <button class="ch-btn escalate" id="escalateBtn">Escalate</button>
+        </div>
+      </div>
+      <div class="chat-msgs" id="chatMsgs"></div>
+      <div class="suggestions-bar" id="suggestionsBar">
+        <div class="sbar-top">
+          <span class="sbar-title">Smart Suggestions</span>
+          <button class="sbar-close" id="sbarClose">&times;</button>
+        </div>
+        <div class="suggestion-chips" id="sugChips"></div>
+      </div>
+      <div class="chat-input-wrap">
+        <div class="canned-dropdown" id="cannedDropdown">
+          <div class="canned-tabs" id="cannedTabs">
+            <button class="canned-tab active" data-cat="all">All</button>
+            <button class="canned-tab" data-cat="greeting">Greeting</button>
+            <button class="canned-tab" data-cat="refund">Refund</button>
+            <button class="canned-tab" data-cat="shipping">Shipping</button>
+            <button class="canned-tab" data-cat="support">Support</button>
+          </div>
+          <div id="cannedList"></div>
+        </div>
+        <div class="chat-input-row">
+          <div class="ci-tools">
+            <button class="ci-tool-btn" id="cannedToggle" title="Canned Responses">
+              <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>
+            </button>
+            <button class="ci-tool-btn" id="suggestBtn" title="Get AI Suggestions">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </button>
+          </div>
+          <div class="ci-textarea-wrap">
+            <textarea id="agentMsgInput" rows="1" placeholder="Type your reply..." disabled></textarea>
+          </div>
+          <button class="ci-send" id="agentSendBtn" disabled title="Send">
+            <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Panel -->
+  <div class="context-panel" id="contextPanel">
+    <div class="ctx-section" id="profileSection">
+      <div class="ctx-title">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Customer Profile
+      </div>
+      <div id="profileContent">
+        <div class="no-profile" id="noProfile">
+          <div>No customer linked</div>
+          <input type="number" id="linkUserId" placeholder="Enter User ID">
+          <button id="linkUserBtn">Link User</button>
+        </div>
+      </div>
+    </div>
+    <div class="ctx-section">
+      <div class="ctx-title">
+        <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-4"/><line x1="5" y1="8" x2="12" y2="8"/><line x1="5" y1="12" x2="10" y2="12"/></svg>
+        Recent Orders
+      </div>
+      <div class="ctx-list" id="ordersList"><div class="ctx-empty">No orders to display</div></div>
+    </div>
+    <div class="ctx-section">
+      <div class="ctx-title">
+        <svg viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Open Tickets
+      </div>
+      <div class="ctx-list" id="ticketsList"><div class="ctx-empty">No tickets to display</div></div>
+    </div>
+    <div class="copilot-section">
+      <div class="ctx-title">
+        <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        AI Co-pilot
+      </div>
+      <div id="copilotContent">
+        <button class="copilot-get" id="copilotBtn">Get AI Suggestion</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const API = location.origin;
+  let agentName = '';
+  let activeSession = null;
+  let mySessions = new Set();
+  let cannedResponses = [];
+  let pollingTimer = null;
+
+  /* ─── DOM ─── */
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+
+  /* ─── Login ─── */
+  const agentNameInput = $('#agentNameInput');
+  const loginBtn = $('#loginBtn');
+  const loginOverlay = $('#loginOverlay');
+  const dashboard = $('#dashboard');
+
+  agentNameInput.addEventListener('input', () => {
+    loginBtn.disabled = !agentNameInput.value.trim();
+  });
+  agentNameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && agentNameInput.value.trim()) doLogin();
+  });
+  loginBtn.addEventListener('click', doLogin);
+
+  function doLogin() {
+    agentName = agentNameInput.value.trim();
+    if (!agentName) return;
+    loginOverlay.classList.add('hidden');
+    dashboard.classList.add('active');
+    $('#agentDisplay').textContent = agentName;
+    startPolling();
+    loadCannedResponses();
+  }
+
+  $('#logoutBtn').addEventListener('click', () => {
+    stopPolling();
+    activeSession = null;
+    mySessions.clear();
+    dashboard.classList.remove('active');
+    loginOverlay.classList.remove('hidden');
+    agentNameInput.value = '';
+    loginBtn.disabled = true;
+  });
+
+  /* ─── Polling for Handoffs ─── */
+  function startPolling() {
+    fetchHandoffs();
+    pollingTimer = setInterval(fetchHandoffs, 3000);
+  }
+  function stopPolling() { clearInterval(pollingTimer); }
+
+  async function fetchHandoffs() {
+    try {
+      const res = await fetch(`${API}/api/handoffs`);
+      const handoffs = await res.json();
+      renderHandoffs(handoffs);
+    } catch(e) { console.error('Fetch handoffs error:', e); }
+  }
+
+  function renderHandoffs(handoffs) {
+    const pending = handoffs.filter(h => !h.accepted_by);
+    const accepted = handoffs.filter(h => h.accepted_by === agentName);
+
+    // Update counts
+    $('#pendingBadge').textContent = pending.length;
+    $('#queueCount').textContent = pending.length;
+
+    // Track my sessions
+    accepted.forEach(h => mySessions.add(h.session_id));
+    $('#activeBadge').textContent = mySessions.size;
+    $('#activeCount').textContent = mySessions.size;
+
+    // Render pending handoffs
+    const list = $('#handoffList');
+    list.innerHTML = '';
+    pending.forEach(h => {
+      const card = document.createElement('div');
+      card.className = 'handoff-card';
+      const reasonClass = (h.reason || 'unknown').replace(/ /g, '_');
+      const timeAgo = formatTimeAgo(h.timestamp);
+      card.innerHTML = `
+        <div class="hc-top">
+          <span class="hc-session">${h.session_id.slice(0,8)}...</span>
+          <span class="hc-time">${timeAgo}</span>
+        </div>
+        <span class="hc-reason ${reasonClass}">${(h.reason || 'unknown').replace(/_/g, ' ')}</span>
+        <div class="hc-msg">${escapeHtml(h.customer_message || '')}</div>
+        <button class="hc-accept" data-sid="${h.session_id}">Accept Handoff</button>
+      `;
+      card.querySelector('.hc-accept').addEventListener('click', (e) => {
+        e.stopPropagation();
+        acceptHandoff(h.session_id);
+      });
+      list.appendChild(card);
+    });
+
+    // Render active sessions
+    const sList = $('#sessionList');
+    sList.innerHTML = '';
+    mySessions.forEach(sid => {
+      const card = document.createElement('div');
+      card.className = 'session-card' + (sid === activeSession ? ' active-card' : '');
+      card.innerHTML = `
+        <div class="sc-dot"></div>
+        <div class="sc-info">
+          <div class="sc-id">${sid.slice(0,12)}...</div>
+        </div>
+      `;
+      card.addEventListener('click', () => openSession(sid));
+      sList.appendChild(card);
+    });
+  }
+
+  /* ─── Accept Handoff ─── */
+  async function acceptHandoff(sessionId) {
+    try {
+      const res = await fetch(`${API}/api/handoffs/${sessionId}/accept?agent_name=${encodeURIComponent(agentName)}`, {method:'POST'});
+      if (!res.ok) { const e = await res.json(); alert(e.detail || 'Error'); return; }
+      mySessions.add(sessionId);
+      openSession(sessionId);
+      fetchHandoffs();
+    } catch(e) { console.error('Accept error:', e); }
+  }
+
+  /* ─── Open Session ─── */
+  async function openSession(sessionId) {
+    activeSession = sessionId;
+    $('#emptyState').style.display = 'none';
+    $('#chatPanel').classList.add('active');
+    $('#contextPanel').classList.add('active');
+    $('#chatSession').textContent = sessionId.slice(0,12) + '...';
+    $('#agentMsgInput').disabled = false;
+
+    // Highlight active session in sidebar
+    $$('.session-card').forEach(c => c.classList.remove('active-card'));
+    $$('.session-card').forEach(c => {
+      if (c.querySelector('.sc-id').textContent.startsWith(sessionId.slice(0,12))) c.classList.add('active-card');
+    });
+
+    // Load messages, context, sentiment
+    loadMessages(sessionId);
+    loadContext(sessionId);
+    loadSentiment(sessionId);
+  }
+
+  /* ─── Load Messages ─── */
+  async function loadMessages(sessionId) {
+    try {
+      const res = await fetch(`${API}/api/handoffs/${sessionId}/messages`);
+      const messages = await res.json();
+      const container = $('#chatMsgs');
+      container.innerHTML = '';
+      messages.forEach(m => {
+        const row = document.createElement('div');
+        row.className = `cm-row ${m.role}`;
+        row.innerHTML = `
+          <div class="cm-label ${m.role}">${m.role === 'ai' ? 'AI Assistant' : m.role === 'customer' ? 'Customer' : 'You'}</div>
+          <div class="cm-bubble">${escapeHtml(m.content)}</div>
+          ${m.timestamp ? `<div class="cm-time">${new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>` : ''}
+        `;
+        container.appendChild(row);
+      });
+      container.scrollTop = container.scrollHeight;
+    } catch(e) { console.error('Load messages error:', e); }
+  }
+
+  /* ─── Load Context ─── */
+  async function loadContext(sessionId) {
+    try {
+      const res = await fetch(`${API}/api/handoffs/${sessionId}/context`);
+      const ctx = await res.json();
+
+      // Profile
+      const profileContent = $('#profileContent');
+      if (ctx.user) {
+        const initials = ctx.user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+        profileContent.innerHTML = `
+          <div class="profile-card">
+            <div class="avatar">${initials}</div>
+            <div class="pname">${escapeHtml(ctx.user.name)}</div>
+            <div class="pdetail"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> ${escapeHtml(ctx.user.email)}</div>
+            <div class="pdetail"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> ${escapeHtml(ctx.user.phone || 'N/A')}</div>
+          </div>
+        `;
+        $('#chatCustomerName').textContent = ctx.user.name;
+      } else {
+        profileContent.innerHTML = `
+          <div class="no-profile" id="noProfile">
+            <div>No customer linked</div>
+            <input type="number" id="linkUserId" placeholder="Enter User ID">
+            <button id="linkUserBtn">Link User</button>
+          </div>
+        `;
+        $('#chatCustomerName').textContent = '';
+        $('#linkUserBtn').addEventListener('click', () => linkUser(sessionId));
+      }
+
+      // Orders
+      const ordersList = $('#ordersList');
+      if (ctx.orders && ctx.orders.length > 0) {
+        ordersList.innerHTML = ctx.orders.slice(0, 5).map(o => `
+          <div class="ctx-item">
+            <div class="ctx-item-top">
+              <span class="ctx-item-label">${escapeHtml(o.product)}</span>
+              <span class="ctx-item-badge badge-${o.status}">${o.status}</span>
+            </div>
+            <div class="ctx-item-detail">$${o.amount.toFixed(2)} &middot; ${new Date(o.created_at).toLocaleDateString()}</div>
+          </div>
+        `).join('');
+      } else {
+        ordersList.innerHTML = '<div class="ctx-empty">No orders to display</div>';
+      }
+
+      // Tickets
+      const ticketsList = $('#ticketsList');
+      if (ctx.tickets && ctx.tickets.length > 0) {
+        ticketsList.innerHTML = ctx.tickets.slice(0, 5).map(t => `
+          <div class="ctx-item">
+            <div class="ctx-item-top">
+              <span class="ctx-item-label">${escapeHtml(t.subject)}</span>
+              <span class="ctx-item-badge badge-${t.status}">${t.status.replace('_',' ')}</span>
+            </div>
+            <div class="ctx-item-detail">Priority: <span class="ctx-item-badge badge-${t.priority}" style="display:inline;padding:1px 5px">${t.priority}</span></div>
+          </div>
+        `).join('');
+      } else {
+        ticketsList.innerHTML = '<div class="ctx-empty">No tickets to display</div>';
+      }
+    } catch(e) { console.error('Load context error:', e); }
+  }
+
+  /* ─── Link User ─── */
+  async function linkUser(sessionId) {
+    const uid = $('#linkUserId')?.value;
+    if (!uid) return;
+    try {
+      const res = await fetch(`${API}/api/handoffs/${sessionId}/link-user`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({user_id: parseInt(uid)})
+      });
+      if (res.ok) loadContext(sessionId);
+      else { const e = await res.json(); alert(e.detail || 'Error'); }
+    } catch(e) { console.error('Link user error:', e); }
+  }
+
+  /* ─── Sentiment ─── */
+  async function loadSentiment(sessionId) {
+    try {
+      const res = await fetch(`${API}/api/handoffs/${sessionId}/sentiment`);
+      const data = await res.json();
+      const badge = $('#sentimentBadge');
+      badge.textContent = `${data.label} (${(data.score * 100).toFixed(0)}%)`;
+      badge.className = `sentiment-badge ${data.label}`;
+    } catch(e) { /* sentiment may fail if no messages */ }
+  }
+
+  /* ─── Send Agent Message ─── */
+  const agentMsgInput = $('#agentMsgInput');
+  const agentSendBtn = $('#agentSendBtn');
+
+  agentMsgInput.addEventListener('input', () => {
+    agentMsgInput.style.height = 'auto';
+    agentMsgInput.style.height = Math.min(agentMsgInput.scrollHeight, 100) + 'px';
+    agentSendBtn.disabled = !agentMsgInput.value.trim();
+  });
+  agentMsgInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAgentMessage(); }
+  });
+  agentSendBtn.addEventListener('click', sendAgentMessage);
+
+  async function sendAgentMessage() {
+    const text = agentMsgInput.value.trim();
+    if (!text || !activeSession) return;
+
+    // Immediately show in chat
+    appendChatMsg('agent', text);
+    agentMsgInput.value = '';
+    agentMsgInput.style.height = 'auto';
+    agentSendBtn.disabled = true;
+
+    try {
+      await fetch(`${API}/api/handoffs/${activeSession}/message`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({message: text})
+      });
+    } catch(e) { console.error('Send message error:', e); }
+  }
+
+  function appendChatMsg(role, content) {
+    const container = $('#chatMsgs');
+    const row = document.createElement('div');
+    row.className = `cm-row ${role}`;
+    const label = role === 'agent' ? 'You' : role === 'customer' ? 'Customer' : 'AI Assistant';
+    row.innerHTML = `
+      <div class="cm-label ${role}">${label}</div>
+      <div class="cm-bubble">${escapeHtml(content)}</div>
+      <div class="cm-time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+    `;
+    container.appendChild(row);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // Poll for new messages in active session
+  setInterval(async () => {
+    if (!activeSession) return;
+    try {
+      const res = await fetch(`${API}/api/handoffs/${activeSession}/messages`);
+      const messages = await res.json();
+      const container = $('#chatMsgs');
+      const current = container.querySelectorAll('.cm-row').length;
+      if (messages.length > current) {
+        // New messages arrived - re-render
+        loadMessages(activeSession);
+      }
+    } catch(e) {}
+  }, 4000);
+
+  /* ─── Canned Responses ─── */
+  async function loadCannedResponses() {
+    try {
+      const res = await fetch(`${API}/api/canned-responses`);
+      cannedResponses = await res.json();
+      renderCanned('all');
+    } catch(e) { console.error('Load canned error:', e); }
+  }
+
+  function renderCanned(category) {
+    const list = $('#cannedList');
+    const filtered = category === 'all' ? cannedResponses : cannedResponses.filter(c => c.category === category);
+    list.innerHTML = filtered.map(c => `
+      <div class="canned-item" data-content="${escapeAttr(c.content)}">
+        <div class="ci-top">
+          <span class="ci-shortcut">${escapeHtml(c.shortcut)}</span>
+          <span class="ci-title">${escapeHtml(c.title)}</span>
+        </div>
+        <div class="ci-preview">${escapeHtml(c.content)}</div>
+      </div>
+    `).join('');
+    list.querySelectorAll('.canned-item').forEach(item => {
+      item.addEventListener('click', () => {
+        agentMsgInput.value = item.dataset.content;
+        agentMsgInput.dispatchEvent(new Event('input'));
+        agentMsgInput.focus();
+        $('#cannedDropdown').classList.remove('show');
+        $('#cannedToggle').classList.remove('active');
+      });
+    });
+  }
+
+  $('#cannedToggle').addEventListener('click', () => {
+    const dd = $('#cannedDropdown');
+    const isOpen = dd.classList.contains('show');
+    dd.classList.toggle('show');
+    $('#cannedToggle').classList.toggle('active');
+  });
+
+  $('#cannedTabs').addEventListener('click', e => {
+    if (!e.target.classList.contains('canned-tab')) return;
+    $$('.canned-tab').forEach(t => t.classList.remove('active'));
+    e.target.classList.add('active');
+    renderCanned(e.target.dataset.cat);
+  });
+
+  /* ─── Smart Suggestions ─── */
+  $('#suggestBtn').addEventListener('click', async () => {
+    if (!activeSession) return;
+    const bar = $('#suggestionsBar');
+    bar.classList.add('show');
+    const chips = $('#sugChips');
+    chips.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Generating suggestions...</span>';
+    try {
+      const res = await fetch(`${API}/api/handoffs/${activeSession}/smart-suggestions`);
+      const data = await res.json();
+      chips.innerHTML = '';
+      data.suggestions.forEach(s => {
+        const chip = document.createElement('div');
+        chip.className = 'sug-chip';
+        chip.textContent = s.suggestion;
+        chip.title = s.rationale;
+        chip.addEventListener('click', () => {
+          agentMsgInput.value = s.suggestion;
+          agentMsgInput.dispatchEvent(new Event('input'));
+          agentMsgInput.focus();
+          bar.classList.remove('show');
+        });
+        chips.appendChild(chip);
+      });
+    } catch(e) {
+      chips.innerHTML = '<span style="font-size:12px;color:var(--rose)">Failed to load suggestions</span>';
+    }
+  });
+
+  $('#sbarClose').addEventListener('click', () => {
+    $('#suggestionsBar').classList.remove('show');
+  });
+
+  /* ─── Copilot ─── */
+  $('#copilotBtn').addEventListener('click', async () => {
+    if (!activeSession) return;
+    const content = $('#copilotContent');
+    content.innerHTML = '<div class="copilot-loading">Generating suggestion...</div>';
+    try {
+      const res = await fetch(`${API}/api/handoffs/${activeSession}/copilot`);
+      const data = await res.json();
+      content.innerHTML = `
+        <div class="copilot-box">
+          <div class="copilot-label"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> AI Suggestion</div>
+          <div class="copilot-text">${escapeHtml(data.suggestion)}</div>
+          <button class="copilot-use" id="copilotUse">Use This Reply</button>
+        </div>
+      `;
+      $('#copilotUse').addEventListener('click', () => {
+        agentMsgInput.value = data.suggestion;
+        agentMsgInput.dispatchEvent(new Event('input'));
+        agentMsgInput.focus();
+      });
+    } catch(e) {
+      content.innerHTML = '<button class="copilot-get" id="copilotBtn">Get AI Suggestion</button>';
+    }
+  });
+
+  /* ─── Resolve / Escalate ─── */
+  $('#resolveBtn').addEventListener('click', () => {
+    if (!activeSession) return;
+    appendChatMsg('agent', 'This issue has been resolved. Thank you for your patience!');
+    fetch(`${API}/api/handoffs/${activeSession}/message`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({message: 'This issue has been resolved. Thank you for your patience!'})
+    });
+  });
+
+  $('#escalateBtn').addEventListener('click', () => {
+    if (!activeSession) return;
+    appendChatMsg('agent', 'I\'m escalating this to our specialized team for further assistance.');
+    fetch(`${API}/api/handoffs/${activeSession}/message`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({message: 'I\'m escalating this to our specialized team for further assistance.'})
+    });
+  });
+
+  /* ─── Utilities ─── */
+  function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+  function escapeAttr(s) { return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function formatTimeAgo(ts) {
+    if (!ts) return '';
+    const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+    return Math.floor(diff/86400) + 'd ago';
+  }
+})();
+</script>
+</body>
+</html>
