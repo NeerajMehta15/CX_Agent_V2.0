@@ -14,6 +14,11 @@ from src.api.schemas import (
     CopilotSuggestion,
     CustomerContext,
     HandoffRequest,
+    KnowledgeSearchRequest,
+    KnowledgeSearchResponse,
+    KnowledgeSearchResult,
+    KnowledgeStatsResponse,
+    KnowledgeUploadRequest,
     LinkUserRequest,
     OrderOut,
     PaginatedHistory,
@@ -41,13 +46,14 @@ router = APIRouter(prefix="/api")
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest, db: Session = Depends(get_db)):
+def chat(request: ChatRequest, use_router: bool = False, db: Session = Depends(get_db)):
     """Send a message to the CX agent and get a response."""
     result = run_agent(
         user_message=request.message,
         session_id=request.session_id,
         db=db,
         tone=request.tone,
+        use_router=use_router,
     )
 
     # Track messages in shared state for agent dashboard
@@ -501,3 +507,78 @@ def get_smart_suggestions(session_id: str, db: Session = Depends(get_db)):
             confidence=sentiment["confidence"],
         ),
     )
+
+
+# ==================== Knowledge Base Endpoints ====================
+
+
+@router.post("/knowledge/search", response_model=KnowledgeSearchResponse)
+def search_knowledge_base(request: KnowledgeSearchRequest):
+    """Search the knowledge base for relevant documents."""
+    from src.agent.knowledge_base import get_knowledge_base
+
+    kb = get_knowledge_base()
+    results = kb.search(request.query, k=request.num_results)
+
+    return KnowledgeSearchResponse(
+        results=[
+            KnowledgeSearchResult(
+                content=r["content"],
+                source=r["source"],
+                score=r["score"],
+            )
+            for r in results
+        ],
+        query=request.query,
+    )
+
+
+@router.get("/knowledge/stats", response_model=KnowledgeStatsResponse)
+def get_knowledge_stats():
+    """Get knowledge base statistics."""
+    from src.agent.knowledge_base import get_knowledge_base
+
+    kb = get_knowledge_base()
+    stats = kb.get_stats()
+
+    return KnowledgeStatsResponse(
+        status=stats["status"],
+        document_count=stats["document_count"],
+        persist_directory=stats["persist_directory"],
+        collection_name=stats["collection_name"],
+    )
+
+
+@router.delete("/knowledge")
+def delete_knowledge_base():
+    """Delete all documents from the knowledge base."""
+    from src.agent.knowledge_base import get_knowledge_base
+
+    kb = get_knowledge_base()
+    result = kb.delete_collection()
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+
+    return result
+
+
+@router.post("/knowledge/upload")
+def upload_knowledge_document(request: KnowledgeUploadRequest):
+    """Upload a new document to the knowledge base."""
+    from src.agent.knowledge_base import get_knowledge_base
+
+    if not request.content.strip():
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+
+    if not request.doc_name.strip():
+        raise HTTPException(status_code=400, detail="Document name cannot be empty")
+
+    kb = get_knowledge_base()
+    chunks = kb.add_document(request.content, request.doc_name)
+
+    return {
+        "status": "success",
+        "doc_name": request.doc_name,
+        "chunks_added": chunks,
+    }

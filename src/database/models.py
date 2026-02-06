@@ -72,6 +72,8 @@ class ConversationMeta(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     sentiment_score = Column(Float)  # -1.0 to 1.0
     sentiment_label = Column(Text)   # negative/neutral/positive
+    assigned_specialist = Column(Text, nullable=True)   # general/refund/technical/escalate
+    specialist_confidence = Column(Float, nullable=True) # 0.0 - 1.0
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -171,6 +171,43 @@ def seed_data():
     db.close()
     print("Database seeded successfully with demo data.")
 
+    # Index knowledge base documents
+    _index_knowledge_base()
+
+
+def _index_knowledge_base():
+    """Index knowledge base documents if not already indexed."""
+    import os
+    from pathlib import Path
+
+    docs_dir = Path("knowledge_docs")
+    if not docs_dir.exists():
+        print("Knowledge docs directory not found, skipping KB indexing.")
+        return
+
+    try:
+        from src.agent.knowledge_base import get_knowledge_base
+
+        kb = get_knowledge_base()
+        stats = kb.get_stats()
+
+        if stats["document_count"] == 0:
+            print("Indexing knowledge base documents...")
+            result = kb.index_documents(str(docs_dir))
+            if result["status"] == "success":
+                print(f"Indexed {result['files_indexed']} files with {result['total_chunks']} chunks.")
+                for detail in result["details"]:
+                    if "error" in detail:
+                        print(f"  - {detail['file']}: ERROR - {detail['error']}")
+                    else:
+                        print(f"  - {detail['file']}: {detail['chunks']} chunks")
+            else:
+                print(f"Knowledge base indexing failed: {result.get('message', 'Unknown error')}")
+        else:
+            print(f"Knowledge base already contains {stats['document_count']} documents.")
+    except Exception as e:
+        print(f"Warning: Could not index knowledge base: {e}")
+
 
 if __name__ == "__main__":
     seed_data()

@@ -140,3 +140,32 @@ class PaginatedHistory(BaseModel):
     limit: int
     offset: int
     has_more: bool
+
+
+# Knowledge Base
+class KnowledgeSearchRequest(BaseModel):
+    query: str
+    num_results: int = 3
+
+
+class KnowledgeSearchResult(BaseModel):
+    content: str
+    source: str
+    score: float
+
+
+class KnowledgeSearchResponse(BaseModel):
+    results: list[KnowledgeSearchResult]
+    query: str
+
+
+class KnowledgeStatsResponse(BaseModel):
+    status: str
+    document_count: int
+    persist_directory: str
+    collection_name: str
+
+
+class KnowledgeUploadRequest(BaseModel):
+    content: str
+    doc_name: str

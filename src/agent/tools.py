@@ -103,6 +103,21 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "knowledge_search",
+            "description": "Search the knowledge base for company policies, product troubleshooting, shipping info, and refund policies.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query"},
+                    "num_results": {"type": "integer", "description": "Number of results (default: 3, max: 5)"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]
 
 
@@ -121,6 +136,8 @@ def execute_tool(name: str, arguments: dict, db: Session, role: str = "customer_
             return _update_user_email(db, role, **arguments)
         elif name == "flag_refund":
             return _flag_refund(db, role, **arguments)
+        elif name == "knowledge_search":
+            return _knowledge_search(**arguments)
         else:
             return json.dumps({"error": f"Unknown tool: {name}"})
     except ValueError as e:
@@ -238,3 +255,35 @@ def _flag_refund(db: Session, role: str, order_id: int) -> str:
     db.refresh(order)
     logger.info(f"Order {order_id} flagged for refund")
     return json.dumps({"result": "Order flagged for refund.", "order_id": order_id})
+
+
+def _knowledge_search(query: str, num_results: int = 3) -> str:
+    """Search the knowledge base for relevant information.
+
+    Args:
+        query: Search query string
+        num_results: Number of results to return (default 3, max 5)
+
+    Returns:
+        JSON string with search results
+    """
+    # Lazy import to avoid circular imports
+    from src.agent.knowledge_base import get_knowledge_base
+
+    try:
+        kb = get_knowledge_base()
+        results = kb.search(query, k=num_results)
+
+        if not results:
+            return json.dumps({
+                "result": [],
+                "message": "No relevant information found in the knowledge base.",
+            })
+
+        return json.dumps({
+            "result": results,
+            "message": f"Found {len(results)} relevant documents.",
+        })
+    except Exception as e:
+        logger.error(f"Knowledge search error: {e}")
+        return json.dumps({"error": "Failed to search knowledge base."})
