@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src.agent.cx_agent import run_agent
-from src.agent.memory import get_memory
+from src.agent.memory import get_memory, get_conversation_history
 from src.api.schemas import (
     AgentMessage,
     CannedResponseCreate,
@@ -14,8 +14,14 @@ from src.api.schemas import (
     CopilotSuggestion,
     CustomerContext,
     HandoffRequest,
+    KnowledgeSearchRequest,
+    KnowledgeSearchResponse,
+    KnowledgeSearchResult,
+    KnowledgeStatsResponse,
+    KnowledgeUploadRequest,
     LinkUserRequest,
     OrderOut,
+    PaginatedHistory,
     SentimentAnalysis,
     SessionMessage,
     SmartSuggestion,
@@ -40,13 +46,14 @@ router = APIRouter(prefix="/api")
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest, db: Session = Depends(get_db)):
+def chat(request: ChatRequest, use_router: bool = False, db: Session = Depends(get_db)):
     """Send a message to the CX agent and get a response."""
     result = run_agent(
         user_message=request.message,
         session_id=request.session_id,
         db=db,
         tone=request.tone,
+        use_router=use_router,
     )
 
     # Track messages in shared state for agent dashboard
@@ -80,10 +87,25 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/sessions/{session_id}/history")
-def get_history(session_id: str):
+def get_history(session_id: str, db: Session = Depends(get_db)):
     """Retrieve chat history for a session."""
-    memory = get_memory(session_id)
+    memory = get_memory(session_id, db=db)
     return {"session_id": session_id, "messages": memory.get_messages()}
+
+
+@router.get("/sessions/{session_id}/full-history", response_model=PaginatedHistory)
+def get_full_history(
+    session_id: str,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+):
+    """Retrieve full paginated message history for a session from the database."""
+    if limit < 1 or limit > 200:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 200")
+    if offset < 0:
+        raise HTTPException(status_code=400, detail="offset must be >= 0")
+    return get_conversation_history(session_id, db, limit=limit, offset=offset)
 
 
 @router.get("/users/{user_id}", response_model=UserProfile)
@@ -184,10 +206,10 @@ def accept_handoff(session_id: str, agent_name: str = "Agent"):
 
 
 @router.get("/handoffs/{session_id}/messages", response_model=list[SessionMessage])
-def get_handoff_messages(session_id: str):
+def get_handoff_messages(session_id: str, db: Session = Depends(get_db)):
     """Get conversation history for a session."""
     # Also include conversation memory from the agent
-    memory = get_memory(session_id)
+    memory = get_memory(session_id, db=db)
     messages = []
 
     # First add messages from conversation memory (before handoff)
@@ -244,7 +266,7 @@ def get_copilot_suggestion(session_id: str, db: Session = Depends(get_db)):
     """Get AI co-pilot suggestion based on conversation context."""
     # Get recent messages for context
     messages = session_messages.get(session_id, [])
-    memory = get_memory(session_id)
+    memory = get_memory(session_id, db=db)
 
     # Build context from conversation
     context_parts = []
@@ -403,10 +425,10 @@ def link_user_to_session(session_id: str, request: LinkUserRequest, db: Session 
 
 
 @router.get("/handoffs/{session_id}/sentiment", response_model=SentimentAnalysis)
-def get_sentiment_analysis(session_id: str):
+def get_sentiment_analysis(session_id: str, db: Session = Depends(get_db)):
     """Get sentiment analysis for a session's conversation."""
     # Get messages from memory and session
-    memory = get_memory(session_id)
+    memory = get_memory(session_id, db=db)
     messages = []
 
     # Messages from memory
@@ -435,7 +457,7 @@ def get_sentiment_analysis(session_id: str):
 def get_smart_suggestions(session_id: str, db: Session = Depends(get_db)):
     """Get AI-generated smart suggestions with sentiment context."""
     # Get messages
-    memory = get_memory(session_id)
+    memory = get_memory(session_id, db=db)
     messages = []
 
     for msg in memory.get_messages():
@@ -485,3 +507,78 @@ def get_smart_suggestions(session_id: str, db: Session = Depends(get_db)):
             confidence=sentiment["confidence"],
         ),
     )
+
+
+# ==================== Knowledge Base Endpoints ====================
+
+
+@router.post("/knowledge/search", response_model=KnowledgeSearchResponse)
+def search_knowledge_base(request: KnowledgeSearchRequest):
+    """Search the knowledge base for relevant documents."""
+    from src.agent.knowledge_base import get_knowledge_base
+
+    kb = get_knowledge_base()
+    results = kb.search(request.query, k=request.num_results)
+
+    return KnowledgeSearchResponse(
+        results=[
+            KnowledgeSearchResult(
+                content=r["content"],
+                source=r["source"],
+                score=r["score"],
+            )
+            for r in results
+        ],
+        query=request.query,
+    )
+
+
+@router.get("/knowledge/stats", response_model=KnowledgeStatsResponse)
+def get_knowledge_stats():
+    """Get knowledge base statistics."""
+    from src.agent.knowledge_base import get_knowledge_base
+
+    kb = get_knowledge_base()
+    stats = kb.get_stats()
+
+    return KnowledgeStatsResponse(
+        status=stats["status"],
+        document_count=stats["document_count"],
+        persist_directory=stats["persist_directory"],
+        collection_name=stats["collection_name"],
+    )
+
+
+@router.delete("/knowledge")
+def delete_knowledge_base():
+    """Delete all documents from the knowledge base."""
+    from src.agent.knowledge_base import get_knowledge_base
+
+    kb = get_knowledge_base()
+    result = kb.delete_collection()
+
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+
+    return result
+
+
+@router.post("/knowledge/upload")
+def upload_knowledge_document(request: KnowledgeUploadRequest):
+    """Upload a new document to the knowledge base."""
+    from src.agent.knowledge_base import get_knowledge_base
+
+    if not request.content.strip():
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+
+    if not request.doc_name.strip():
+        raise HTTPException(status_code=400, detail="Document name cannot be empty")
+
+    kb = get_knowledge_base()
+    chunks = kb.add_document(request.content, request.doc_name)
+
+    return {
+        "status": "success",
+        "doc_name": request.doc_name,
+        "chunks_added": chunks,
+    }

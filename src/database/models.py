@@ -1,6 +1,7 @@
+import json
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, Text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, Text
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
@@ -71,7 +72,33 @@ class ConversationMeta(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     sentiment_score = Column(Float)  # -1.0 to 1.0
     sentiment_label = Column(Text)   # negative/neutral/positive
+    assigned_specialist = Column(Text, nullable=True)   # general/refund/technical/escalate
+    specialist_confidence = Column(Float, nullable=True) # 0.0 - 1.0
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    __table_args__ = (
+        Index("ix_messages_session_created", "session_id", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Text, nullable=False, index=True)
+    role = Column(Text, nullable=False)           # user | assistant | tool
+    content = Column(Text, nullable=False)
+    metadata_json = Column(Text, nullable=True)   # JSON: {tool_name, tool_result, sentiment_at_time}
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    @property
+    def metadata_dict(self) -> dict:
+        if self.metadata_json:
+            return json.loads(self.metadata_json)
+        return {}
+
+    @metadata_dict.setter
+    def metadata_dict(self, value: dict):
+        self.metadata_json = json.dumps(value) if value else None

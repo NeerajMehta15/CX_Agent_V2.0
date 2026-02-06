@@ -34,6 +34,7 @@ An AI-powered Customer Experience Agent with intelligent handoff, real-time sent
 - **Conversation Memory** — Context-aware responses across multi-turn conversations
 - **Smart Handoff** — Automatic escalation based on repeated intent, data gaps, or hallucination risk
 - **Configurable Tone** — Switch between professional, friendly, and playful personalities
+- **RAG Knowledge Base** — ChromaDB-backed retrieval for policies, troubleshooting, and company info
 
 ### Agent Productivity Tools
 - **Customer Context Panel** — View user profile, order history, and support tickets at a glance
@@ -128,7 +129,8 @@ CX_Agent/
 │   │   ├── tools.py            # Function calling tool definitions
 │   │   ├── memory.py           # Conversation memory management
 │   │   ├── handoff.py          # Handoff detection logic
-│   │   └── analysis.py         # Sentiment & smart suggestions (NEW)
+│   │   ├── analysis.py         # Sentiment & smart suggestions
+│   │   └── knowledge_base.py   # RAG knowledge base with ChromaDB
 │   ├── api/
 │   │   ├── routes.py           # REST API endpoints
 │   │   ├── websocket.py        # WebSocket handlers
@@ -146,7 +148,14 @@ CX_Agent/
 │       └── logger.py           # Logging configuration
 ├── ui/
 │   ├── app.py                  # Customer chat interface
-│   └── agent_dashboard.py      # Agent productivity dashboard (NEW)
+│   ├── agent_dashboard.py      # Agent productivity dashboard
+│   └── knowledge_admin.py      # Knowledge base admin UI
+├── knowledge_docs/             # RAG source documents
+│   ├── refund_policy.md
+│   ├── shipping_info.md
+│   ├── product_troubleshooting.md
+│   └── company_policies.md
+├── chroma_db/                  # ChromaDB vector store (auto-created)
 ├── config/
 │   └── system_prompts.yaml     # Tone configurations & guardrails
 ├── evals/                      # Evaluation test suite (NEW)
@@ -243,6 +252,14 @@ streamlit run ui/agent_dashboard.py --server.port 8502
 ```
 
 Opens at `http://localhost:8502`
+
+### Start the Knowledge Base Admin
+
+```bash
+streamlit run ui/knowledge_admin.py --server.port 8503
+```
+
+Opens at `http://localhost:8503`
 
 ### Quick Test
 
@@ -361,13 +378,46 @@ curl -X POST http://localhost:8000/api/chat \
 }
 ```
 
-### Canned Responses Endpoints (NEW)
+### Canned Responses Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/canned-responses` | List all (filter: `?category=refund`) |
 | `POST` | `/api/canned-responses` | Create new canned response |
 | `DELETE` | `/api/canned-responses/{id}` | Delete a canned response |
+
+### Knowledge Base Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/knowledge/search` | Search knowledge base |
+| `GET` | `/api/knowledge/stats` | Get KB statistics |
+| `DELETE` | `/api/knowledge` | Clear all documents |
+| `POST` | `/api/knowledge/upload` | Add new document |
+
+#### POST /api/knowledge/search
+
+**Request:**
+```json
+{
+  "query": "What is the refund policy?",
+  "num_results": 3
+}
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "content": "We offer a 30-day refund policy for defective items...",
+      "source": "refund_policy.md",
+      "score": 0.8542
+    }
+  ],
+  "query": "What is the refund policy?"
+}
+```
 
 #### POST /api/canned-responses
 
@@ -584,6 +634,7 @@ The AI agent has access to these function-calling tools:
 | `update_ticket` | Change ticket status | Write: tickets.status |
 | `update_user_email` | Update customer email | Write: users.email |
 | `flag_refund` | Mark order for refund | Write: orders.status |
+| `knowledge_search` | Search RAG knowledge base | None (public) |
 
 ---
 
