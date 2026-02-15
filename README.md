@@ -36,6 +36,13 @@ An AI-powered Customer Experience Agent with intelligent handoff, real-time sent
 - **Configurable Tone** — Switch between professional, friendly, and playful personalities
 - **RAG Knowledge Base** — ChromaDB-backed retrieval for policies, troubleshooting, and company info
 
+### Persistent Customer Memory
+- **Session Insights** — Automated per-session analytics (sentiment drift, resolution status, tool usage) computed at session close
+- **Customer Profiles** — Aggregated cross-session profiles with loyalty tier, risk flags, topic frequency, and weighted sentiment
+- **Dynamic Tone Selection** — Automatic tone inference from customer history and real-time message signals (no LLM call)
+- **Profile-Aware Prompts** — Customer history injected into the system prompt so the agent personalizes from the first message
+- **Risk Detection** — Flags at-risk customers based on escalation rate, sentiment trends, and unresolved session streaks
+
 ### Agent Productivity Tools
 - **Customer Context Panel** — View user profile, order history, and support tickets at a glance
 - **Canned Responses** — Pre-built templates with shortcuts (e.g., `/greet`, `/refund`) and category filtering
@@ -78,6 +85,10 @@ An AI-powered Customer Experience Agent with intelligent handoff, real-time sent
 │  │   Agent     │  │   Tools     │  │   Memory    │  │   Handoff           │ │
 │  │   Loop      │  │   Executor  │  │   Manager   │  │   Detection         │ │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │   Profile Engine: session close → insights → profile aggregation       │ │
+│  │   Dynamic tone inference · Risk detection · Profile-aware prompts      │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
                                        │
                         ┌──────────────┴──────────────┐
@@ -90,17 +101,22 @@ An AI-powered Customer Experience Agent with intelligent handoff, real-time sent
 │  └─────────────────────────┘  │    │  ┌───────────────┐ ┌───────────────┐  │
 └───────────────────────────────┘    │  │CannedResponses│ │ConversationMeta│ │
                                      │  └───────────────┘ └───────────────┘  │
+                                     │  ┌────────────────┐ ┌────────────────┐│
+                                     │  │SessionInsights │ │CustomerProfiles││
+                                     │  └────────────────┘ └────────────────┘│
                                      └───────────────────────────────────────┘
 ```
 
 ### Request Flow
 
 1. **Customer Message** → Arrives via REST (`POST /api/chat`) or WebSocket (`/ws/customer/{session_id}`)
-2. **Handoff Check** → Evaluates if escalation is needed (repeated intent, data gap)
-3. **Agent Loop** → GPT-4 processes message with available tools (up to 5 iterations)
-4. **Tool Execution** → Permission-checked database operations
-5. **Response** → AI response returned; if handoff triggered, broadcasts to agent pool
-6. **Agent Dashboard** → Human agents can accept handoffs, view context, use smart suggestions
+2. **Profile Load** → Loads customer profile (single DB query) and infers tone dynamically
+3. **Handoff Check** → Evaluates if escalation is needed (repeated intent, data gap)
+4. **Agent Loop** → GPT-4 processes message with profile-aware system prompt (up to 5 iterations)
+5. **Tool Execution** → Permission-checked database operations; first tool call sets primary intent
+6. **Response** → AI response returned; if handoff triggered, broadcasts to agent pool
+7. **Session Close** → On disconnect or explicit close, computes sentiment drift, resolution status, and updates customer profile
+8. **Agent Dashboard** → Human agents can accept handoffs, view context, use smart suggestions
 
 ---
 
@@ -130,6 +146,7 @@ CX_Agent/
 │   │   ├── memory.py           # Conversation memory management
 │   │   ├── handoff.py          # Handoff detection logic
 │   │   ├── analysis.py         # Sentiment & smart suggestions
+│   │   ├── profile.py          # Session close, profile aggregation, tone inference
 │   │   └── knowledge_base.py   # RAG knowledge base with ChromaDB
 │   ├── api/
 │   │   ├── routes.py           # REST API endpoints
@@ -158,7 +175,7 @@ CX_Agent/
 ├── chroma_db/                  # ChromaDB vector store (auto-created)
 ├── config/
 │   └── system_prompts.yaml     # Tone configurations & guardrails
-├── evals/                      # Evaluation test suite (NEW)
+├── evals/                      # Evaluation test suite
 │   ├── conftest.py             # Pytest fixtures
 │   ├── datasets/               # Test datasets
 │   ├── test_sentiment.py       # Sentiment analysis evals
@@ -323,14 +340,60 @@ curl -X POST http://localhost:8000/api/chat \
 | `POST` | `/api/handoffs/{session_id}/message` | Send message as agent |
 | `GET` | `/api/handoffs/{session_id}/copilot` | Get AI co-pilot suggestion |
 
-### Customer Context Endpoints (NEW)
+### Customer Context Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/handoffs/{session_id}/context` | Get customer profile, orders, tickets |
 | `POST` | `/api/handoffs/{session_id}/link-user` | Link session to user ID |
 
-### AI Analysis Endpoints (NEW)
+### Persistent Customer Memory Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/sessions/{session_id}/close` | Close session, compute insights, update profile |
+| `GET` | `/api/users/{user_id}/profile` | Get aggregated customer profile |
+
+#### POST /api/sessions/{session_id}/close
+
+Computes per-session analytics (sentiment drift, resolution status, tool usage), persists a `SessionInsights` row, and recomputes the customer's aggregated `CustomerProfile`.
+
+**Response:**
+```json
+{
+  "session_id": "customer-123",
+  "resolution_status": "resolved",
+  "sentiment_drift": 0.7,
+  "message": "Session closed"
+}
+```
+
+#### GET /api/users/{user_id}/profile
+
+Returns the aggregated customer profile built from all past sessions.
+
+**Response:**
+```json
+{
+  "user_id": 1,
+  "total_sessions": 3,
+  "total_escalations": 0,
+  "resolution_rate": 1.0,
+  "weighted_sentiment": 0.3,
+  "avg_sentiment_drift": 0.5,
+  "topic_frequency": {"support_inquiry": 2, "order_status": 1},
+  "loyalty_tier": "silver",
+  "total_spend": 199.97,
+  "risk_flag": false,
+  "risk_reasons": [],
+  "preferred_tone": "friendly",
+  "first_contact": "2025-01-10 14:30:00",
+  "last_contact": "2025-01-15 09:00:00",
+  "last_resolution_status": "resolved"
+}
+```
+
+### AI Analysis Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -504,12 +567,35 @@ Context-aware response generation that considers:
 3. **Customer Context** — References specific orders, tickets, user info
 4. **Ranking** — 3 suggestions ordered by confidence with rationale
 
+### Persistent Customer Memory
+
+Cross-session customer intelligence that builds over time.
+
+**Session Close Pipeline:**
+1. On session end (REST close or WebSocket disconnect), sentiment is computed on the first and last user messages (2 LLM calls, only at close time — zero impact on live chat)
+2. Resolution status is inferred: `escalated` if handoff occurred, `resolved` if the last assistant message contains closing phrases, otherwise `unresolved`
+3. A `SessionInsights` row is persisted with sentiment drift, intent, tool calls, tone, and handoff details
+4. The customer's `CustomerProfile` is recomputed from all their sessions
+
+**Profile Aggregation:**
+- **Weighted sentiment** — Exponential decay (0.7 rate) so recent sessions dominate
+- **Loyalty tier** — Based on total spend: standard (<$100), silver ($100-499), gold ($500-1999), platinum ($2000+)
+- **Risk detection** — Flags customers with escalation rate >40%, weighted sentiment < -0.3, negative drift trend, or 3+ consecutive unresolved sessions
+- **Preferred tone** — Most-used tone during resolved sessions, with fallback heuristics
+
+**Dynamic Tone Inference:**
+- Acute negative keywords (frustrated, angry, lawsuit, etc.) in the current message → `professional`
+- Risk-flagged customer → `professional`
+- Historical preferred tone → use it
+- Default → `friendly`
+- No LLM call — keyword-based, zero added latency
+
 ### Auto-Linking
 
 When the AI agent uses `lookup_user` tool and finds a customer, the session is automatically linked to that user ID. This enables:
 - Immediate context panel population
 - Context-aware smart suggestions
-- Seamless agent experience
+- Profile-aware personalization from the first message
 
 ---
 
@@ -575,7 +661,8 @@ python evals/run_evals.py summary
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENAI_API_KEY` | (required) | OpenAI API key |
+| `LLM_API_KEY` | (required) | API key for the LLM provider |
+| `LLM_PROVIDER` | `openai` | LLM provider: `openai`, `qwen3`, or `kimi` |
 | `DATABASE_URL` | `sqlite:///cx_agent.db` | Database connection string |
 | `DEFAULT_TONE` | `friendly` | Default agent personality |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
@@ -609,13 +696,13 @@ Role-based access control in `src/config/permissions.py`:
 ```python
 # customer_ai role: Limited write access
 "customer_ai": {
-    "read": ["users", "orders", "tickets"],
+    "read": ["users", "orders", "tickets", "customer_profiles", "session_insights"],
     "write": {"tickets": ["status"], "users": ["email"]}
 }
 
 # agent_assist role: Extended access
 "agent_assist": {
-    "read": ["users", "orders", "tickets"],
+    "read": ["users", "orders", "tickets", "customer_profiles", "session_insights"],
     "write": {"tickets": ["status", "assigned_to"], "orders": ["status"]}
 }
 ```
@@ -658,11 +745,25 @@ Order       # id, user_id, product, amount, status, created_at
 Ticket      # id, user_id, subject, description, status, priority, assigned_to
 ```
 
-### New Models
+### Support Models
 
 ```python
 CannedResponse    # id, shortcut, title, content, category, created_at
 ConversationMeta  # id, session_id, user_id, sentiment_score, sentiment_label
+Message           # id, session_id, role, content, metadata_json, created_at
+```
+
+### Persistent Memory Models
+
+```python
+SessionInsights   # id, session_id, user_id, sentiment_score/label, sentiment_start/end/drift,
+                  # intent_primary, handoff_occurred/reason, resolution_status, message_count,
+                  # tool_calls_json, tone_used, assigned_specialist, closed_at
+
+CustomerProfile   # id, user_id, total_sessions, total_escalations, resolution_rate,
+                  # weighted_sentiment, avg_sentiment_drift, topic_frequency_json,
+                  # loyalty_tier, total_spend, risk_flag, risk_reasons_json,
+                  # preferred_tone, first_contact, last_contact, last_resolution_status
 ```
 
 ### Demo Data
@@ -672,6 +773,8 @@ The seed script creates:
 - 5 orders across users
 - 3 support tickets
 - 6 canned responses (`/greet`, `/thanks`, `/refund`, `/shipping`, `/escalate`, `/close`)
+- 2 session insights (demo-session-alice, demo-session-bob)
+- 3 customer profiles (one per demo user)
 
 ---
 
