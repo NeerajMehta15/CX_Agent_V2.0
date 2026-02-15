@@ -5,9 +5,10 @@ from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from src.agent.memory import ConversationMemory, get_memory
+from src.agent.profile import load_profile, infer_tone
 from src.agent.tools import TOOL_DEFINITIONS, execute_tool
 from src.agent.handoff import check_handoff, HandoffReason
-from src.config.prompts import get_system_prompt
+from src.config.prompts import get_system_prompt, get_system_prompt_with_profile
 from src.config.settings import settings
 from src.utils.logger import get_logger
 
@@ -33,12 +34,23 @@ def run_agent(
     use_router: bool = False,
 ) -> AgentResponse:
     """Process a user message through the CX agent and return a response."""
-    memory = get_memory(session_id)
+    memory = get_memory(session_id, db=db)
+
+    # --- Profile-aware tone and prompt ---
+    from src.api.websocket import session_user_mapping
+    user_id = session_user_mapping.get(session_id)
+    profile = load_profile(user_id, db) if user_id else None
+
+    if tone is None and profile:
+        tone = infer_tone(profile, user_message)
+    memory._tone_used = tone
 
     # Check for repeated intent before processing
     handoff_result = check_handoff(memory, user_message)
     if handoff_result:
         memory.add_message("user", user_message)
+        memory._handoff_occurred = True
+        memory._handoff_reason = handoff_result.value
         transition_msg = _get_handoff_message(handoff_result)
         memory.add_message("assistant", transition_msg)
         return AgentResponse(
@@ -48,7 +60,7 @@ def run_agent(
         )
 
     # Build conversation messages
-    system_prompt = get_system_prompt(tone)
+    system_prompt = get_system_prompt_with_profile(tone, profile)
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(memory.get_messages())
     messages.append({"role": "user", "content": user_message})
@@ -79,6 +91,8 @@ def run_agent(
             # Post-response handoff check (data gap)
             if memory.last_tool_returned_empty():
                 handoff_result = HandoffReason.DATA_GAP
+                memory._handoff_occurred = True
+                memory._handoff_reason = handoff_result.value
                 transition_msg = _get_handoff_message(handoff_result)
                 memory.add_message("assistant", transition_msg)
                 return AgentResponse(

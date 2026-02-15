@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
 
 from src.database.connection import init_db, SessionLocal
-from src.database.models import User, Order, Ticket, CannedResponse, ConversationMeta, Message
+from src.database.models import (
+    User, Order, Ticket, CannedResponse, ConversationMeta, Message,
+    SessionInsights, CustomerProfile,
+)
 
 
 def seed_data():
@@ -166,6 +169,108 @@ def seed_data():
         ),
     ]
     db.add_all(messages)
+
+    # Create session insights for demo sessions
+    session_insights = [
+        SessionInsights(
+            session_id="demo-session-alice",
+            user_id=users[0].id,
+            sentiment_score=-0.2,
+            sentiment_label="neutral",
+            assigned_specialist="general",
+            specialist_confidence=0.8,
+            intent_primary="support_inquiry",
+            sentiment_start=-0.4,
+            sentiment_end=0.3,
+            sentiment_drift=0.7,
+            handoff_occurred=0,
+            resolution_status="resolved",
+            message_count=6,
+            tool_calls_json='["lookup_user", "get_orders"]',
+            tone_used="friendly",
+            closed_at=now - timedelta(hours=4),
+            created_at=now - timedelta(hours=5),
+        ),
+        SessionInsights(
+            session_id="demo-session-bob",
+            user_id=users[1].id,
+            sentiment_score=-0.1,
+            sentiment_label="neutral",
+            assigned_specialist="general",
+            specialist_confidence=0.75,
+            intent_primary="order_status",
+            sentiment_start=-0.3,
+            sentiment_end=0.1,
+            sentiment_drift=0.4,
+            handoff_occurred=0,
+            resolution_status="resolved",
+            message_count=4,
+            tool_calls_json='["lookup_user", "get_orders"]',
+            tone_used="friendly",
+            closed_at=now - timedelta(hours=2),
+            created_at=now - timedelta(hours=3),
+        ),
+    ]
+    db.add_all(session_insights)
+
+    # Create customer profiles for all demo users
+    # Alice: total spend = 79.99 + 19.99 = 99.98 (standard tier)
+    # Bob: total spend = 49.99 + 34.99 = 84.98 (standard tier)
+    # Carol: total spend = 129.99 (silver tier)
+    customer_profiles = [
+        CustomerProfile(
+            user_id=users[0].id,
+            total_sessions=1,
+            total_escalations=0,
+            resolution_rate=1.0,
+            weighted_sentiment=0.3,
+            avg_sentiment_drift=0.7,
+            topic_frequency_json='{"support_inquiry": 1}',
+            loyalty_tier="standard",
+            total_spend=99.98,
+            risk_flag=0,
+            risk_reasons_json="[]",
+            preferred_tone="friendly",
+            first_contact=now - timedelta(hours=5),
+            last_contact=now - timedelta(hours=4),
+            last_resolution_status="resolved",
+        ),
+        CustomerProfile(
+            user_id=users[1].id,
+            total_sessions=1,
+            total_escalations=0,
+            resolution_rate=1.0,
+            weighted_sentiment=0.1,
+            avg_sentiment_drift=0.4,
+            topic_frequency_json='{"order_status": 1}',
+            loyalty_tier="standard",
+            total_spend=84.98,
+            risk_flag=0,
+            risk_reasons_json="[]",
+            preferred_tone="friendly",
+            first_contact=now - timedelta(hours=3),
+            last_contact=now - timedelta(hours=2),
+            last_resolution_status="resolved",
+        ),
+        CustomerProfile(
+            user_id=users[2].id,
+            total_sessions=0,
+            total_escalations=0,
+            resolution_rate=0.0,
+            weighted_sentiment=0.0,
+            avg_sentiment_drift=0.0,
+            topic_frequency_json="{}",
+            loyalty_tier="silver",
+            total_spend=129.99,
+            risk_flag=0,
+            risk_reasons_json="[]",
+            preferred_tone="friendly",
+            first_contact=None,
+            last_contact=None,
+            last_resolution_status=None,
+        ),
+    ]
+    db.add_all(customer_profiles)
 
     db.commit()
     db.close()

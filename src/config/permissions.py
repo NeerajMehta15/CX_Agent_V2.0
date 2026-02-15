@@ -1,10 +1,10 @@
 PERMISSIONS = {
     "customer_ai": {
-        "read": ["users", "orders", "tickets"],
+        "read": ["users", "orders", "tickets", "customer_profiles", "session_insights"],
         "write": ["tickets.status", "users.email"],
     },
     "agent_assist": {
-        "read": ["users", "orders", "tickets"],
+        "read": ["users", "orders", "tickets", "customer_profiles", "session_insights"],
         "write": ["tickets.status", "tickets.assigned_to", "orders.status", "users.email"],
     },
 }

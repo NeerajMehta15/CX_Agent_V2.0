@@ -6,6 +6,16 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
+TOOL_TO_INTENT = {
+    "lookup_user": "account_inquiry",
+    "get_orders": "order_status",
+    "get_tickets": "support_inquiry",
+    "update_ticket": "ticket_management",
+    "update_user_email": "account_update",
+    "flag_refund": "refund",
+    "knowledge_search": "general_inquiry",
+}
+
 
 @dataclass
 class ConversationMemory:
@@ -19,6 +29,10 @@ class ConversationMemory:
     _db: Session | None = field(default=None, repr=False)
     _session_id: str | None = field(default=None, repr=False)
     _loaded_from_db: bool = field(default=False, repr=False)
+    _handoff_occurred: bool = field(default=False, repr=False)
+    _handoff_reason: str | None = field(default=None, repr=False)
+    _primary_intent: str | None = field(default=None, repr=False)
+    _tone_used: str | None = field(default=None, repr=False)
 
     def _ensure_loaded(self):
         """Lazy-load messages from DB on first public method call."""
@@ -87,6 +101,8 @@ class ConversationMemory:
     def add_tool_result(self, tool_name: str, result: dict):
         self._ensure_loaded()
         self.tool_results.append({"tool": tool_name, "result": result})
+        if self._primary_intent is None and tool_name in TOOL_TO_INTENT:
+            self._primary_intent = TOOL_TO_INTENT[tool_name]
         self._persist_message(
             role="tool",
             content=json.dumps(result),

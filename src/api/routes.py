@@ -13,6 +13,7 @@ from src.api.schemas import (
     ChatResponse,
     CopilotSuggestion,
     CustomerContext,
+    CustomerProfileOut,
     HandoffRequest,
     KnowledgeSearchRequest,
     KnowledgeSearchResponse,
@@ -23,6 +24,7 @@ from src.api.schemas import (
     OrderOut,
     PaginatedHistory,
     SentimentAnalysis,
+    SessionCloseResponse,
     SessionMessage,
     SmartSuggestion,
     SmartSuggestionsResponse,
@@ -48,6 +50,10 @@ router = APIRouter(prefix="/api")
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, use_router: bool = False, db: Session = Depends(get_db)):
     """Send a message to the CX agent and get a response."""
+    # Link user to session for profile-aware responses
+    if request.user_id is not None:
+        session_user_mapping[request.session_id] = request.user_id
+
     result = run_agent(
         user_message=request.message,
         session_id=request.session_id,
@@ -506,6 +512,61 @@ def get_smart_suggestions(session_id: str, db: Session = Depends(get_db)):
             label=sentiment["label"],
             confidence=sentiment["confidence"],
         ),
+    )
+
+
+# ==================== Persistent Customer Memory Endpoints ====================
+
+
+@router.post("/sessions/{session_id}/close", response_model=SessionCloseResponse)
+def close_session_endpoint(session_id: str, db: Session = Depends(get_db)):
+    """Close a session: compute analytics, persist insights, update customer profile."""
+    from src.agent.profile import close_session
+
+    insight = close_session(session_id, db)
+    return SessionCloseResponse(
+        session_id=session_id,
+        resolution_status=insight.resolution_status,
+        sentiment_drift=insight.sentiment_drift,
+        message="Session closed",
+    )
+
+
+@router.get("/users/{user_id}/profile", response_model=CustomerProfileOut)
+def get_customer_profile(user_id: int, db: Session = Depends(get_db)):
+    """Get aggregated customer profile."""
+    import json as _json
+    from src.agent.profile import load_profile
+
+    profile = load_profile(user_id, db)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Customer profile not found")
+
+    try:
+        topics = _json.loads(profile.topic_frequency_json) if profile.topic_frequency_json else {}
+    except (ValueError, TypeError):
+        topics = {}
+    try:
+        risk_reasons = _json.loads(profile.risk_reasons_json) if profile.risk_reasons_json else []
+    except (ValueError, TypeError):
+        risk_reasons = []
+
+    return CustomerProfileOut(
+        user_id=profile.user_id,
+        total_sessions=profile.total_sessions,
+        total_escalations=profile.total_escalations,
+        resolution_rate=profile.resolution_rate,
+        weighted_sentiment=profile.weighted_sentiment,
+        avg_sentiment_drift=profile.avg_sentiment_drift,
+        topic_frequency=topics,
+        loyalty_tier=profile.loyalty_tier,
+        total_spend=profile.total_spend,
+        risk_flag=bool(profile.risk_flag),
+        risk_reasons=risk_reasons,
+        preferred_tone=profile.preferred_tone,
+        first_contact=str(profile.first_contact) if profile.first_contact else None,
+        last_contact=str(profile.last_contact) if profile.last_contact else None,
+        last_resolution_status=profile.last_resolution_status,
     )
 
 

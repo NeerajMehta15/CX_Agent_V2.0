@@ -85,6 +85,16 @@ async def customer_websocket(websocket: WebSocket, session_id: str):
     except WebSocketDisconnect:
         customer_connections.pop(session_id, None)
         logger.info(f"Customer disconnected: {session_id}")
+        # Close session: persist insights and update profile
+        try:
+            from src.agent.profile import close_session
+            close_db = SessionLocal()
+            try:
+                close_session(session_id, close_db)
+            finally:
+                close_db.close()
+        except Exception:
+            logger.exception("Failed to close session on disconnect: %s", session_id)
 
 
 @ws_router.websocket("/ws/agent/{session_id}")
