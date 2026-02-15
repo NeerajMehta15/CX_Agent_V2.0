@@ -122,3 +122,92 @@ class SmartSuggestion(BaseModel):
 class SmartSuggestionsResponse(BaseModel):
     suggestions: list[SmartSuggestion]
     sentiment: SentimentAnalysis
+
+
+# Persistent Conversation History
+class MessageOut(BaseModel):
+    id: int
+    role: str
+    content: str
+    timestamp: str | None = None
+    metadata: dict = {}
+
+
+class PaginatedHistory(BaseModel):
+    session_id: str
+    messages: list[MessageOut]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
+# Knowledge Base
+class KnowledgeSearchRequest(BaseModel):
+    query: str
+    num_results: int = 3
+
+
+class KnowledgeSearchResult(BaseModel):
+    content: str
+    source: str
+    score: float
+
+
+class KnowledgeSearchResponse(BaseModel):
+    results: list[KnowledgeSearchResult]
+    query: str
+
+
+class KnowledgeStatsResponse(BaseModel):
+    status: str
+    document_count: int
+    persist_directory: str
+    collection_name: str
+
+
+class KnowledgeUploadRequest(BaseModel):
+    content: str
+    doc_name: str
+
+
+# Persistent Customer Memory
+class SessionInsightsOut(BaseModel):
+    session_id: str
+    user_id: int | None = None
+    sentiment_score: float | None = None
+    sentiment_label: str | None = None
+    intent_primary: str | None = None
+    sentiment_start: float | None = None
+    sentiment_end: float | None = None
+    sentiment_drift: float | None = None
+    handoff_occurred: bool = False
+    resolution_status: str | None = None
+    message_count: int = 0
+    tone_used: str | None = None
+    closed_at: str | None = None
+
+
+class CustomerProfileOut(BaseModel):
+    user_id: int
+    total_sessions: int = 0
+    total_escalations: int = 0
+    resolution_rate: float = 0.0
+    weighted_sentiment: float = 0.0
+    avg_sentiment_drift: float = 0.0
+    topic_frequency: dict = {}
+    loyalty_tier: str = "standard"
+    total_spend: float = 0.0
+    risk_flag: bool = False
+    risk_reasons: list[str] = []
+    preferred_tone: str = "friendly"
+    first_contact: str | None = None
+    last_contact: str | None = None
+    last_resolution_status: str | None = None
+
+
+class SessionCloseResponse(BaseModel):
+    session_id: str
+    resolution_status: str | None = None
+    sentiment_drift: float | None = None
+    message: str = "Session closed"

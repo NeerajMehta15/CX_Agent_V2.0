@@ -361,7 +361,7 @@ def run_agent_with_router(
 ) -> AgentResponse:
     """Entry point for routed conversations. Runs the LangGraph and returns AgentResponse."""
     from src.api.websocket import session_user_mapping
-    from src.database.models import User, Order, Ticket, ConversationMeta
+    from src.database.models import User, Order, Ticket, ConversationMeta, SessionInsights
 
     # Fetch user context if available
     user_context = None
@@ -404,7 +404,7 @@ def run_agent_with_router(
     graph = _get_graph()
     final_state = graph.invoke(initial_state)
 
-    # Persist specialist info to ConversationMeta
+    # Persist specialist info to ConversationMeta and SessionInsights
     specialist = final_state.get("assigned_specialist")
     confidence = final_state.get("intent_confidence", 0.0)
     if specialist:
@@ -424,9 +424,28 @@ def run_agent_with_router(
                     specialist_confidence=confidence,
                 )
                 db.add(meta)
+
+            # Also upsert SessionInsights with specialist routing info
+            insight = (
+                db.query(SessionInsights)
+                .filter(SessionInsights.session_id == session_id)
+                .first()
+            )
+            if insight:
+                insight.assigned_specialist = specialist
+                insight.specialist_confidence = confidence
+            else:
+                insight = SessionInsights(
+                    session_id=session_id,
+                    user_id=user_id,
+                    assigned_specialist=specialist,
+                    specialist_confidence=confidence,
+                )
+                db.add(insight)
+
             db.commit()
         except Exception:
-            logger.exception("Failed to save specialist info to ConversationMeta")
+            logger.exception("Failed to save specialist info to ConversationMeta/SessionInsights")
             try:
                 db.rollback()
             except Exception:

@@ -102,3 +102,55 @@ class Message(Base):
     @metadata_dict.setter
     def metadata_dict(self, value: dict):
         self.metadata_json = json.dumps(value) if value else None
+
+
+class SessionInsights(Base):
+    __tablename__ = "session_insights"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Text, unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    sentiment_score = Column(Float)
+    sentiment_label = Column(Text)
+    assigned_specialist = Column(Text)
+    specialist_confidence = Column(Float)
+    intent_primary = Column(Text)
+    intent_confidence = Column(Float)
+    sentiment_start = Column(Float)
+    sentiment_end = Column(Float)
+    sentiment_drift = Column(Float)
+    handoff_occurred = Column(Integer, default=0)
+    handoff_reason = Column(Text)
+    resolution_status = Column(Text)  # resolved/unresolved/escalated
+    message_count = Column(Integer, default=0)
+    tool_calls_json = Column(Text)  # JSON list of tool names
+    tone_used = Column(Text)
+    closed_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+
+
+class CustomerProfile(Base):
+    __tablename__ = "customer_profiles"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False, index=True)
+    total_sessions = Column(Integer, default=0)
+    total_escalations = Column(Integer, default=0)
+    resolution_rate = Column(Float, default=0.0)
+    weighted_sentiment = Column(Float, default=0.0)
+    avg_sentiment_drift = Column(Float, default=0.0)
+    topic_frequency_json = Column(Text)  # JSON: {"refund": 5, "order_status": 12}
+    loyalty_tier = Column(Text, default="standard")  # standard/silver/gold/platinum
+    total_spend = Column(Float, default=0.0)
+    risk_flag = Column(Integer, default=0)
+    risk_reasons_json = Column(Text)  # JSON list
+    preferred_tone = Column(Text, default="friendly")
+    first_contact = Column(DateTime)
+    last_contact = Column(DateTime)
+    last_resolution_status = Column(Text)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
