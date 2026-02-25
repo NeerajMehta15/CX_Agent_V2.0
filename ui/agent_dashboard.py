@@ -142,6 +142,17 @@ def set_message_input(text: str):
     st.session_state.message_input = text
 
 
+def fetch_customer_profile(user_id: int):
+    """Fetch aggregated customer profile."""
+    try:
+        response = requests.get(f"{API_URL}/users/{user_id}/profile", timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except requests.exceptions.RequestException:
+        pass
+    return None
+
+
 # ==================== Sidebar ====================
 
 with st.sidebar:
@@ -226,6 +237,13 @@ else:
     # Active chat view - 3-column layout
     session_id = st.session_state.active_session
 
+    # Fetch context data upfront so both columns can use it
+    context = fetch_customer_context(session_id)
+    user = context.get("user")
+    orders = context.get("orders", [])
+    tickets = context.get("tickets", [])
+    profile = fetch_customer_profile(user["id"]) if user and user.get("id") else None
+
     # Create 3-column layout: Main Chat (wider) | Context Panel
     main_col, context_col = st.columns([2, 1])
 
@@ -254,6 +272,36 @@ else:
             f"**Sentiment:** :{sentiment_color}[{sentiment_emoji} {sentiment_label.upper()}] "
             f"(score: {sentiment_score:.2f}, confidence: {sentiment_confidence:.0%})"
         )
+
+        # Profile-based alert banners
+        if profile:
+            tier = profile.get("loyalty_tier", "standard")
+            risk = profile.get("risk_flag", False)
+            drift = profile.get("avg_sentiment_drift", 0.0)
+            total_sess = profile.get("total_sessions", 0)
+            total_esc = profile.get("total_escalations", 0)
+            last_res = profile.get("last_resolution_status")
+            last_contact = profile.get("last_contact")
+
+            if risk and tier in ("gold", "platinum"):
+                st.error("AT-RISK VIP: This is a high-value customer flagged at risk. Handle with priority.")
+            if drift < -0.15:
+                st.warning(f"Sentiment declining: avg drift {drift:+.2f} over recent sessions.")
+            if total_sess > 0 and (total_esc / total_sess) > 0.4:
+                st.warning(f"High escalation history: {total_esc}/{total_sess} sessions escalated.")
+            if last_res == "unresolved":
+                st.warning("Previous session was unresolved. Customer may be frustrated.")
+            if last_res == "escalated" and last_contact:
+                try:
+                    from datetime import datetime, timezone
+                    lc = datetime.fromisoformat(last_contact)
+                    if lc.tzinfo is None:
+                        lc = lc.replace(tzinfo=timezone.utc)
+                    days_since = (datetime.now(timezone.utc) - lc).days
+                    if days_since >= 30:
+                        st.error(f"Post-escalation silence: {days_since} days since last contact after escalation.")
+                except Exception:
+                    pass
 
         # Messages container
         messages = fetch_messages(session_id)
@@ -355,11 +403,81 @@ else:
     with context_col:
         st.subheader("Customer Context")
 
-        # Fetch customer context
-        context = fetch_customer_context(session_id)
-        user = context.get("user")
-        orders = context.get("orders", [])
-        tickets = context.get("tickets", [])
+        # Profile Intelligence Card
+        if profile:
+            tier = profile.get("loyalty_tier", "standard")
+            risk = profile.get("risk_flag", False)
+            tier_icons = {"standard": "🥉", "silver": "🥈", "gold": "🥇", "platinum": "💎"}
+            tier_icon = tier_icons.get(tier, "🥉")
+            tier_label = f"{tier_icon} {tier.upper()} Customer"
+            if risk:
+                tier_label += "  :red[AT-RISK]"
+            st.markdown(f"### {tier_label}")
+
+            # Metrics row
+            m1, m2, m3 = st.columns(3)
+            total_sess = profile.get("total_sessions", 0)
+            total_esc = profile.get("total_escalations", 0)
+            res_rate = profile.get("resolution_rate", 0.0)
+            m1.metric("Sessions", total_sess)
+            m2.metric("Resolution", f"{res_rate:.0%}")
+            m3.metric("Escalations", total_esc)
+
+            # Sentiment line
+            ws = profile.get("weighted_sentiment", 0.0)
+            drift = profile.get("avg_sentiment_drift", 0.0)
+            if drift > 0.1:
+                trend = ":green[Improving]"
+            elif drift < -0.1:
+                trend = ":red[Declining]"
+            else:
+                trend = "Stable"
+            st.markdown(f"**Sentiment:** {ws:+.2f} | Trend: {trend}")
+
+            # Top topics
+            topics = profile.get("topic_frequency", {})
+            if topics:
+                sorted_topics = sorted(topics.items(), key=lambda x: x[1], reverse=True)[:3]
+                topic_str = ", ".join(f"{t} ({c})" for t, c in sorted_topics)
+                st.markdown(f"**Top topics:** {topic_str}")
+
+            # Risk reasons
+            risk_reasons = profile.get("risk_reasons", [])
+            if risk and risk_reasons:
+                st.markdown("**Risk reasons:**")
+                for reason in risk_reasons:
+                    st.markdown(f"- :red[{reason}]")
+
+            # Customer value
+            spend = profile.get("total_spend", 0.0)
+            tone = profile.get("preferred_tone", "friendly")
+            st.markdown(f"**Total spend:** ${spend:,.2f} | **Preferred tone:** {tone}")
+
+            # Activity timeline
+            first_contact = profile.get("first_contact")
+            last_contact = profile.get("last_contact")
+            try:
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc)
+                parts = []
+                if first_contact:
+                    fc = datetime.fromisoformat(first_contact)
+                    if fc.tzinfo is None:
+                        fc = fc.replace(tzinfo=timezone.utc)
+                    days_customer = (now - fc).days
+                    parts.append(f"Customer for {days_customer} days")
+                if last_contact:
+                    lc = datetime.fromisoformat(last_contact)
+                    if lc.tzinfo is None:
+                        lc = lc.replace(tzinfo=timezone.utc)
+                    days_ago = (now - lc).days
+                    parts.append(f"Last contact {days_ago}d ago")
+                if parts:
+                    st.caption(" | ".join(parts))
+            except Exception:
+                pass
+
+            st.divider()
 
         # User Profile Section
         st.markdown("#### User Profile")
