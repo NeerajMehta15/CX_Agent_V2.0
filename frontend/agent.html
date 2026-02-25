@@ -439,6 +439,52 @@ html,body{height:100%;font-family:var(--font-ui);color:var(--text-1);background:
 }
 .copilot-get:hover{border-color:var(--mint);color:var(--mint)}
 
+/* ─── Profile Intelligence ─── */
+.profile-intel{
+  padding:14px;border-radius:var(--radius);
+  background:var(--bg-2);border:1px solid var(--border);
+  margin-bottom:10px;
+}
+.pi-tier{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.pi-tier-badge{font-size:14px;font-weight:700;color:var(--text-0);letter-spacing:-.01em}
+.pi-risk-tag{
+  padding:2px 8px;border-radius:4px;
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+  background:var(--rose-dim);color:var(--rose);
+}
+.pi-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.pi-metric{
+  padding:8px;border-radius:var(--radius-sm);background:var(--bg-3);
+  text-align:center;
+}
+.pi-metric-val{font-family:var(--font-mono);font-size:16px;font-weight:600;color:var(--text-0)}
+.pi-metric-label{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.pi-row{font-size:12px;color:var(--text-1);margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pi-row strong{color:var(--text-0);font-weight:500}
+.pi-trend-up{color:var(--mint);font-weight:600}
+.pi-trend-down{color:var(--rose);font-weight:600}
+.pi-trend-stable{color:var(--text-2);font-weight:500}
+.pi-topics{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.pi-topic{
+  padding:2px 8px;border-radius:12px;
+  font-size:10px;font-weight:500;
+  background:var(--sky-dim);color:var(--sky);
+}
+.pi-risk-reasons{margin-top:4px}
+.pi-risk-reason{font-size:11px;color:var(--rose);margin-bottom:2px;padding-left:8px;border-left:2px solid var(--rose)}
+.pi-footer{font-size:10px;color:var(--text-3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+
+/* Alert Banners */
+.alert-banners{display:flex;flex-direction:column;gap:4px;padding:6px 20px 0}
+.alert-banner{
+  padding:8px 12px;border-radius:var(--radius-sm);
+  font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;
+  animation:card-in .3s var(--ease) both;
+}
+.alert-banner.error{background:var(--rose-dim);color:var(--rose);border:1px solid rgba(248,113,113,.2)}
+.alert-banner.warning{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(251,191,36,.2)}
+.alert-banner .alert-icon{font-size:14px;flex-shrink:0}
+
 /* Utility */
 .hidden{display:none!important}
 </style>
@@ -511,6 +557,7 @@ html,body{height:100%;font-family:var(--font-ui);color:var(--text-1);background:
           <button class="ch-btn escalate" id="escalateBtn">Escalate</button>
         </div>
       </div>
+      <div class="alert-banners" id="alertBanners"></div>
       <div class="chat-msgs" id="chatMsgs"></div>
       <div class="suggestions-bar" id="suggestionsBar">
         <div class="sbar-top">
@@ -552,6 +599,13 @@ html,body{height:100%;font-family:var(--font-ui);color:var(--text-1);background:
 
   <!-- Context Panel -->
   <div class="context-panel" id="contextPanel">
+    <div class="ctx-section" id="profileIntelSection" style="display:none">
+      <div class="ctx-title">
+        <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Profile Intelligence
+      </div>
+      <div id="profileIntelContent"></div>
+    </div>
     <div class="ctx-section" id="profileSection">
       <div class="ctx-title">
         <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -822,7 +876,123 @@ html,body{height:100%;font-family:var(--font-ui);color:var(--text-1);background:
       } else {
         ticketsList.innerHTML = '<div class="ctx-empty">No tickets to display</div>';
       }
+      // Profile Intelligence
+      if (ctx.user && ctx.user.id) {
+        loadProfileIntel(ctx.user.id);
+      } else {
+        $('#profileIntelSection').style.display = 'none';
+        $('#alertBanners').innerHTML = '';
+      }
     } catch(e) { console.error('Load context error:', e); }
+  }
+
+  /* ─── Profile Intelligence ─── */
+  async function loadProfileIntel(userId) {
+    try {
+      const res = await fetch(`${API}/api/users/${userId}/profile`);
+      if (!res.ok) { $('#profileIntelSection').style.display = 'none'; $('#alertBanners').innerHTML = ''; return; }
+      const p = await res.json();
+
+      // Show section
+      $('#profileIntelSection').style.display = 'block';
+
+      const tierIcons = {standard:'🥉', silver:'🥈', gold:'🥇', platinum:'💎'};
+      const tierIcon = tierIcons[p.loyalty_tier] || '🥉';
+      const riskTag = p.risk_flag ? `<span class="pi-risk-tag">AT-RISK</span>` : '';
+
+      // Sentiment trend
+      let trendHtml;
+      if (p.avg_sentiment_drift > 0.1) trendHtml = '<span class="pi-trend-up">↑ Improving</span>';
+      else if (p.avg_sentiment_drift < -0.1) trendHtml = '<span class="pi-trend-down">↓ Declining</span>';
+      else trendHtml = '<span class="pi-trend-stable">→ Stable</span>';
+
+      // Top topics
+      let topicsHtml = '';
+      if (p.topic_frequency && Object.keys(p.topic_frequency).length > 0) {
+        const sorted = Object.entries(p.topic_frequency).sort((a,b) => b[1]-a[1]).slice(0,3);
+        topicsHtml = `<div class="pi-row"><strong>Top topics:</strong> <div class="pi-topics">${sorted.map(([t,c]) => `<span class="pi-topic">${escapeHtml(t)} (${c})</span>`).join('')}</div></div>`;
+      }
+
+      // Risk reasons
+      let riskHtml = '';
+      if (p.risk_flag && p.risk_reasons && p.risk_reasons.length > 0) {
+        riskHtml = `<div class="pi-risk-reasons">${p.risk_reasons.map(r => `<div class="pi-risk-reason">${escapeHtml(r)}</div>`).join('')}</div>`;
+      }
+
+      // Activity timeline
+      let footerParts = [];
+      const now = Date.now();
+      if (p.first_contact) {
+        try { const days = Math.floor((now - new Date(p.first_contact).getTime()) / 86400000); footerParts.push(`Customer for ${days}d`); } catch(e) {}
+      }
+      if (p.last_contact) {
+        try { const days = Math.floor((now - new Date(p.last_contact).getTime()) / 86400000); footerParts.push(`Last contact ${days}d ago`); } catch(e) {}
+      }
+      const footerHtml = footerParts.length ? `<div class="pi-footer">${footerParts.join(' · ')}</div>` : '';
+
+      const resRate = (p.resolution_rate * 100).toFixed(0);
+
+      $('#profileIntelContent').innerHTML = `
+        <div class="profile-intel">
+          <div class="pi-tier">
+            <span class="pi-tier-badge">${tierIcon} ${p.loyalty_tier.toUpperCase()}</span>
+            ${riskTag}
+          </div>
+          <div class="pi-metrics">
+            <div class="pi-metric"><div class="pi-metric-val">${p.total_sessions}</div><div class="pi-metric-label">Sessions</div></div>
+            <div class="pi-metric"><div class="pi-metric-val">${resRate}%</div><div class="pi-metric-label">Resolution</div></div>
+            <div class="pi-metric"><div class="pi-metric-val">${p.total_escalations}</div><div class="pi-metric-label">Escalations</div></div>
+          </div>
+          <div class="pi-row"><strong>Sentiment:</strong> ${p.weighted_sentiment >= 0 ? '+' : ''}${p.weighted_sentiment.toFixed(2)} · ${trendHtml}</div>
+          ${topicsHtml}
+          ${riskHtml}
+          <div class="pi-row"><strong>Spend:</strong> $${p.total_spend.toLocaleString(undefined,{minimumFractionDigits:2})} · <strong>Tone:</strong> ${p.preferred_tone}</div>
+          ${footerHtml}
+        </div>
+      `;
+
+      // Alert banners
+      renderAlertBanners(p);
+    } catch(e) {
+      console.error('Load profile intel error:', e);
+      $('#profileIntelSection').style.display = 'none';
+      $('#alertBanners').innerHTML = '';
+    }
+  }
+
+  function renderAlertBanners(p) {
+    const banners = [];
+    const tier = p.loyalty_tier;
+    const risk = p.risk_flag;
+
+    if (risk && (tier === 'gold' || tier === 'platinum')) {
+      banners.push({type:'error', icon:'🚨', text:'AT-RISK VIP — High-value customer flagged at risk. Handle with priority.'});
+    }
+    if (p.avg_sentiment_drift < -0.15) {
+      banners.push({type:'warning', icon:'📉', text:`Sentiment declining: avg drift ${p.avg_sentiment_drift >= 0 ? '+' : ''}${p.avg_sentiment_drift.toFixed(2)} over recent sessions.`});
+    }
+    if (p.total_sessions > 0 && (p.total_escalations / p.total_sessions) > 0.4) {
+      banners.push({type:'warning', icon:'⚠️', text:`High escalation history: ${p.total_escalations}/${p.total_sessions} sessions escalated.`});
+    }
+    if (p.last_resolution_status === 'unresolved') {
+      banners.push({type:'warning', icon:'⏳', text:'Previous session was unresolved. Customer may be frustrated.'});
+    }
+    if (p.last_resolution_status === 'escalated' && p.last_contact) {
+      try {
+        const days = Math.floor((Date.now() - new Date(p.last_contact).getTime()) / 86400000);
+        if (days >= 30) {
+          banners.push({type:'error', icon:'🔕', text:`Post-escalation silence: ${days} days since last contact after escalation.`});
+        }
+      } catch(e) {}
+    }
+
+    const container = $('#alertBanners');
+    container.innerHTML = banners.map(b => `
+      <div class="alert-banner ${b.type}">
+        <span class="alert-icon">${b.icon}</span>
+        ${escapeHtml(b.text)}
+      </div>
+    `).join('');
   }
 
   /* ─── Link User ─── */
